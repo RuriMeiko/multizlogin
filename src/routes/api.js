@@ -36,7 +36,16 @@ import {
     sendImagesToGroupByAccount,
     handleAccountAction
 } from '../api/zalo/zalo.js';
-import { validateUser, adminMiddleware, addUser, getAllUsers, changePassword } from '../services/authService.js';
+import { 
+    validateUser, 
+    adminMiddleware, 
+    addUser, 
+    getAllUsers, 
+    changePassword,
+    apiAuthMiddleware,
+    generateApiKeyForUser,
+    getApiKeyForUser
+} from '../services/authService.js';
 import {
     getWebhookUrl,
     setWebhookUrl,
@@ -45,6 +54,9 @@ import {
 } from '../services/webhookService.js';
 
 const router = express.Router();
+// Router for API-key protected routes
+const protectedRouter = express.Router();
+protectedRouter.use(apiAuthMiddleware);
 
 // Dành cho ES Module: xác định __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -157,6 +169,59 @@ router.post('/users', adminMiddleware, (req, res) => {
 
   res.json({ success: true, message: 'Đã thêm người dùng thành công' });
 });
+
+// API Key Management Routes (Session-protected)
+router.get('/user/api-key', (req, res) => {
+    if (!req.session.authenticated) {
+        return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
+    const apiKey = getApiKeyForUser(req.session.username);
+    res.json({ success: true, apiKey: apiKey });
+});
+
+router.post('/user/generate-key', (req, res) => {
+    if (!req.session.authenticated) {
+        return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
+    const newApiKey = generateApiKeyForUser(req.session.username);
+    if (!newApiKey) {
+        return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    res.json({ success: true, apiKey: newApiKey });
+});
+
+// Zalo-related APIs (API Key protected)
+protectedRouter.post('/findUser', findUser);
+protectedRouter.post('/getUserInfo', getUserInfo);
+protectedRouter.post('/sendFriendRequest', sendFriendRequest);
+protectedRouter.post('/sendmessage', sendMessage);
+protectedRouter.post('/createGroup', createGroup);
+protectedRouter.post('/getGroupInfo', getGroupInfo);
+protectedRouter.post('/addUserToGroup', addUserToGroup);
+protectedRouter.post('/removeUserFromGroup', removeUserFromGroup);
+protectedRouter.post('/sendImageToUser', sendImageToUser);
+protectedRouter.post('/sendImagesToUser', sendImagesToUser);
+protectedRouter.post('/sendImageToGroup', sendImageToGroup);
+protectedRouter.post('/sendImagesToGroup', sendImagesToGroup);
+protectedRouter.get('/accounts', getLoggedAccounts);
+protectedRouter.get('/accounts/:ownId', getAccountDetails);
+protectedRouter.delete('/accounts/:ownId', deleteAccount);
+protectedRouter.post('/findUserByAccount', findUserByAccount);
+protectedRouter.post('/sendMessageByAccount', sendMessageByAccount);
+protectedRouter.post('/sendImageByAccount', sendImageByAccount);
+protectedRouter.post('/getUserInfoByAccount', getUserInfoByAccount);
+protectedRouter.post('/sendFriendRequestByAccount', sendFriendRequestByAccount);
+protectedRouter.post('/createGroupByAccount', createGroupByAccount);
+protectedRouter.post('/getGroupInfoByAccount', getGroupInfoByAccount);
+protectedRouter.post('/addUserToGroupByAccount', addUserToGroupByAccount);
+protectedRouter.post('/removeUserFromGroupByAccount', removeUserFromGroupByAccount);
+protectedRouter.post('/sendImageToUserByAccount', sendImageToUserByAccount);
+protectedRouter.post('/sendImagesToUserByAccount', sendImagesToUserByAccount);
+protectedRouter.post('/sendImageToGroupByAccount', sendImageToGroupByAccount);
+protectedRouter.post('/sendImagesToGroupByAccount', sendImagesToGroupByAccount);
+protectedRouter.post('/account/action', handleAccountAction);
+
+router.use('/', protectedRouter);
 
 // Đổi mật khẩu
 router.post('/change-password', (req, res) => {

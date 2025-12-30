@@ -113,6 +113,29 @@
                 <% } %>
             </div>
 
+            <% if (authenticated) { %>
+            <div class="card mb-4">
+                <div class="card-header">
+                    Quản lý API Key
+                </div>
+                <div class="card-body">
+                    <p>API Key của bạn được sử dụng để xác thực các yêu cầu tới API.</p>
+                    <div class="input-group">
+                        <input type="text" id="apiKeyInput" class="form-control" placeholder="API Key của bạn sẽ xuất hiện ở đây" readonly>
+                        <div class="input-group-append">
+                            <button class="btn btn-outline-secondary" type="button" id="copyApiKeyBtn" title="Copy to clipboard">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <small id="copyStatus" class="form-text text-muted"></small>
+                    <br>
+                    <button class="btn btn-primary" id="generateApiKeyBtn">Tạo API Key mới</button>
+                    <p class="mt-2"><small>Lưu ý: Tạo key mới sẽ vô hiệu hóa key cũ của bạn.</small></p>
+                </div>
+            </div>
+            <% } %>
+
             <div class="row mb-4">
                 <div class="col">
                     <a href="/zalo-login" class="btn btn-block btn-primary">
@@ -207,6 +230,50 @@
                 alert('Đã xảy ra lỗi khi đăng xuất');
             });
         }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            <% if (authenticated) { %>
+            const apiKeyInput = document.getElementById('apiKeyInput');
+            const generateBtn = document.getElementById('generateApiKeyBtn');
+            const copyBtn = document.getElementById('copyApiKeyBtn');
+            const copyStatus = document.getElementById('copyStatus');
+
+            // Fetch initial API key
+            fetch('/api/user/api-key')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success && data.apiKey) {
+                        apiKeyInput.value = data.apiKey;
+                    }
+                });
+
+            // Generate new API key
+            generateBtn.addEventListener('click', () => {
+                if (!confirm('Bạn có chắc muốn tạo API key mới không? Key cũ sẽ bị vô hiệu hóa.')) {
+                    return;
+                }
+                fetch('/api/user/generate-key', { method: 'POST' })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success && data.apiKey) {
+                            apiKeyInput.value = data.apiKey;
+                            alert('Đã tạo API key mới thành công!');
+                        } else {
+                            alert('Lỗi khi tạo API key: ' + data.message);
+                        }
+                    });
+            });
+
+            // Copy API key
+            copyBtn.addEventListener('click', () => {
+                if (!apiKeyInput.value) return;
+                apiKeyInput.select();
+                document.execCommand('copy');
+                copyStatus.textContent = 'Đã sao chép!';
+                setTimeout(() => { copyStatus.textContent = ''; }, 2000);
+            });
+            <% } %>
+        });
     </script>
 </body>
 </html>

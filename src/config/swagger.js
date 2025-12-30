@@ -19,14 +19,19 @@ const options = {
     ],
     components: {
       securitySchemes: {
-        // Define if you use JWT or other auth
-        // bearerAuth: {
-        //   type: 'http',
-        //   scheme: 'bearer',
-        //   bearerFormat: 'JWT',
-        // },
-      },
+        ApiKeyAuth: {
+          type: 'apiKey',
+          in: 'header',
+          name: 'X-API-Key',
+          description: 'API Key for authentication'
+        }
+      }
     },
+    security: [
+        {
+            "ApiKeyAuth": []
+        }
+    ]
   },
   // Path to the API docs
   apis: ['./src/routes/*.js', './src/api/zalo/*.js'],

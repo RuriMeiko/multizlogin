@@ -42,7 +42,8 @@ const initUserFile = () => {
         username: 'admin',
         salt,
         hash,
-        role: 'admin' // Thêm quyền admin
+        role: 'admin', // Thêm quyền admin
+        apiKey: null
       }];
 
       // Tạo file users.json
@@ -131,7 +132,8 @@ export const addUser = (username, password, role = 'user') => {
     username,
     salt,
     hash,
-    role
+    role,
+    apiKey: null
   });
 
   fs.writeFileSync(userFilePath, JSON.stringify(users, null, 2));
@@ -310,6 +312,23 @@ export const adminMiddleware = (req, res, next) => {
   res.status(403).send('Không có quyền truy cập. Chỉ admin mới có thể thực hiện chức năng này.');
 };
 
+// Middleware xác thực API key
+export const apiAuthMiddleware = (req, res, next) => {
+    const apiKey = req.headers['x-api-key'];
+    if (!apiKey) {
+        return res.status(401).json({ success: false, message: 'API Key is missing' });
+    }
+
+    const user = getUserByApiKey(apiKey);
+    if (!user) {
+        return res.status(403).json({ success: false, message: 'Invalid API Key' });
+    }
+
+    // Gắn thông tin user vào request để các handler sau có thể sử dụng
+    req.user = user;
+    next();
+};
+
 // Lấy toàn bộ danh sách người dùng (chỉ admin mới có quyền)
 export const getAllUsers = () => {
   const users = getUsers();
@@ -317,6 +336,38 @@ export const getAllUsers = () => {
     username: user.username,
     role: user.role || 'user'
   }));
+};
+
+// Lấy API key của người dùng
+export const getApiKeyForUser = (username) => {
+    const users = getUsers();
+    const user = users.find(u => u.username === username);
+    return user?.apiKey || null;
+};
+
+// Tạo API key mới cho người dùng
+export const generateApiKeyForUser = (username) => {
+    const users = getUsers();
+    const userIndex = users.findIndex(u => u.username === username);
+
+    if (userIndex === -1) {
+        return null;
+    }
+
+    const newApiKey = crypto.randomBytes(32).toString('hex');
+    users[userIndex].apiKey = newApiKey;
+
+    fs.writeFileSync(userFilePath, JSON.stringify(users, null, 2));
+    return newApiKey;
+};
+
+// Lấy thông tin người dùng bằng API key
+export const getUserByApiKey = (apiKey) => {
+    if (!apiKey) {
+        return null;
+    }
+    const users = getUsers();
+    return users.find(u => u.apiKey === apiKey);
 };
 
 // Danh sách các route công khai (không cần xác thực)
@@ -336,22 +387,7 @@ export const publicRoutes = [
   '/api/reset-admin-password', // API reset mật khẩu admin
   '/reset-password', // Trang reset mật khẩu admin
   '/favicon.ico', // Favicon
-  '/ws', // WebSocket
-
-  // Thêm các API Zalo không cần xác thực
-  '/api/findUser',
-  '/api/getUserInfo',
-  '/api/sendFriendRequest',
-  '/api/sendmessage',
-  '/api/createGroup',
-  '/api/getGroupInfo',
-  '/api/addUserToGroup',
-  '/api/removeUserFromGroup',
-  '/api/sendImageToUser',
-  '/api/sendImagesToUser',
-  '/api/sendImageToGroup',
-  '/api/sendImagesToGroup',
-  '/api-docs'
+  '/ws' // WebSocket
 ];
 
 // Kiểm tra xem route có phải là public hay không
