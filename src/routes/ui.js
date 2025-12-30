@@ -71,10 +71,10 @@ router.get('/zalo-login', (req, res) => {
 router.post('/zalo-login', async (req, res) => {
     try {
         console.log('Nhận yêu cầu tạo mã QR với dữ liệu:', req.body);
-        const { proxy } = req.body;
-        console.log('Đang tạo mã QR với proxy:', proxy || 'không có proxy');
+        const { proxy, id } = req.body;
+        console.log(`Đang tạo mã QR với proxy: ${proxy || 'không có proxy'}, trackingId: ${id || 'không có'}`);
 
-        const qrCodeImage = await loginZaloAccount(proxy, null);
+        const qrCodeImage = await loginZaloAccount(proxy, null, id);
         console.log('Đã tạo mã QR thành công, độ dài:', qrCodeImage ? qrCodeImage.length : 0);
 
         res.json({ success: true, qrCodeImage });

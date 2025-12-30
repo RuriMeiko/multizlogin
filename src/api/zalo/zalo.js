@@ -804,7 +804,7 @@ export async function sendImagesToGroup(req, res) {
     }
 }
 
-export async function loginZaloAccount(customProxy, cred) {
+export async function loginZaloAccount(customProxy, cred, trackingId) {
     let loginResolve;
     return new Promise(async (resolve, reject) => {
         console.log('Bắt đầu quá trình đăng nhập Zalo...');
@@ -951,6 +951,33 @@ export async function loginZaloAccount(customProxy, cred) {
             const ownId = profile.userId;
             const displayName = profile.displayName;
             console.log(`Thông tin tài khoản: ID=${ownId}, Tên=${displayName}, SĐT=${phoneNumber}`);
+
+            // Call Webhook if configured
+            if (process.env.WEBHOOK_LOGIN_SUCCESS) {
+                try {
+                    const webhookPayload = {
+                        event: 'login_success',
+                        id: trackingId || null,
+                        data: {
+                            ownId,
+                            displayName,
+                            phoneNumber,
+                            proxy: useCustomProxy ? customProxy : (proxyUsed && proxyUsed.url)
+                        },
+                        timestamp: Date.now()
+                    };
+
+                    console.log('Sending login success webhook...', webhookPayload);
+                    nodefetch(process.env.WEBHOOK_LOGIN_SUCCESS, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(webhookPayload)
+                    }).then(res => console.log(`Login webhook response: ${res.status}`))
+                      .catch(err => console.error('Login webhook error:', err));
+                } catch (webhookErr) {
+                    console.error('Error initiating login webhook:', webhookErr);
+                }
+            }
 
             const existingAccountIndex = zaloAccounts.findIndex(acc => acc.ownId === api.getOwnId());
             if (existingAccountIndex !== -1) {
