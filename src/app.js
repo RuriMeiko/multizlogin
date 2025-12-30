@@ -26,9 +26,31 @@ if (fs.existsSync(configEnvPath)) {
     console.log("Loaded environment variables from src/config/.env");
 }
 
-// DEBUG: In log giá trị biến môi trường (không in secret)
-console.log(`[DEBUG] PORT: ${process.env.PORT || 3000}`);
-console.log(`[DEBUG] MESSAGE_WEBHOOK_URL: ${process.env.MESSAGE_WEBHOOK_URL ? 'Configured' : 'MISSING'}`);
+// DEBUG: In log chi tiết các biến môi trường đã load
+const envVars = [
+    'PORT',
+    'MESSAGE_WEBHOOK_URL',
+    'GROUP_EVENT_WEBHOOK_URL',
+    'REACTION_WEBHOOK_URL',
+    'WEBHOOK_LOGIN_SUCCESS',
+    'SESSION_SECRET'
+];
+
+console.log('--- KIỂM TRA BIẾN MÔI TRƯỜNG ---');
+envVars.forEach(varName => {
+    const value = process.env[varName];
+    if (value) {
+        if (varName.includes('SECRET') || varName.includes('KEY') || varName.includes('PASSWORD')) {
+            const masked = value.length > 4 ? `***${value.slice(-4)}` : '****';
+            console.log(`[ENV] ${varName}: ${masked} (Đã load)`);
+        } else {
+            console.log(`[ENV] ${varName}: ${value}`);
+        }
+    } else {
+        console.log(`[ENV] ${varName}: CHƯA CÓ (Sẽ dùng mặc định hoặc bỏ qua)`);
+    }
+});
+console.log('--------------------------------');
 
 const app = express();
 
