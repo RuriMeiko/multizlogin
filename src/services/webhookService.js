@@ -133,13 +133,25 @@ export function saveWebhookConfig() {
 // Hàm lấy webhook URL theo ownId và loại
 export function getWebhookUrl(key, ownId) {
     try {
-        // Nếu có ownId và có cấu hình riêng cho ownId đó
+        // 1. Kiểm tra cấu hình riêng cho tài khoản
         if (ownId && webhookConfig.accounts[ownId] && webhookConfig.accounts[ownId][key]) {
-            return webhookConfig.accounts[ownId][key];
+            const url = webhookConfig.accounts[ownId][key];
+            if (url) {
+                console.log(`[Webhook] Sử dụng URL được cấu hình riêng cho tài khoản ${ownId} cho key '${key}': ${url}`);
+                return url;
+            }
         }
         
-        // Nếu không có cấu hình riêng, sử dụng cấu hình mặc định
-        return webhookConfig.default[key] || "";
+        // 2. Nếu không có, sử dụng cấu hình mặc định (từ .env)
+        const defaultUrl = webhookConfig.default[key];
+        if (defaultUrl) {
+            console.log(`[Webhook] Sử dụng URL mặc định cho key '${key}': ${defaultUrl}`);
+            return defaultUrl;
+        }
+
+        // 3. Nếu cả hai đều không có
+        console.warn(`[Webhook] Không tìm thấy URL nào cho key '${key}', cả cấu hình riêng của tài khoản ${ownId} và cấu hình mặc định.`);
+        return "";
     } catch (error) {
         console.error("Lỗi khi lấy webhook URL:", error);
         return "";
