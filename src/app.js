@@ -16,17 +16,22 @@ import { specs } from './config/swagger.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Load environment variables from .env file
-dotenv.config({ path: path.join(__dirname, 'config', '.env') });
-// Also load from root .env if it exists (overriding config/.env if conflicts, or filling gaps)
-const rootEnvPath = path.join(process.cwd(), '.env');
-if (fs.existsSync(rootEnvPath)) {
-    dotenv.config({ path: rootEnvPath, override: true });
-    console.log("Loaded environment variables from root .env");
+// Load environment variables
+dotenv.config(); // Load from root .env if exists
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Also try loading from src/config/.env for backward compatibility
+const configEnvPath = path.join(__dirname, 'config', '.env');
+if (fs.existsSync(configEnvPath)) {
+    dotenv.config({ path: configEnvPath });
+    console.log("Loaded environment variables from src/config/.env");
 }
 
-// DEBUG: In log giá trị biến môi trường
-console.log(`[DEBUG] MESSAGE_WEBHOOK_URL in app.js: ${process.env.MESSAGE_WEBHOOK_URL}`);
+// DEBUG: In log giá trị biến môi trường (không in secret)
+console.log(`[DEBUG] PORT: ${process.env.PORT || 3000}`);
+console.log(`[DEBUG] MESSAGE_WEBHOOK_URL: ${process.env.MESSAGE_WEBHOOK_URL ? 'Configured' : 'MISSING'}`);
 
 const app = express();
 

@@ -1,22 +1,24 @@
-FROM cangphamdocker/zalo-server:latest
+# Sử dụng Node.js 20 (phiên bản ổn định) làm nền tảng
+FROM node:20-slim
 
-# Set work directory
+# Thiết lập thư mục làm việc
 WORKDIR /app
 
-# Copy package files first (for better layer caching)
+# Copy file package để cài đặt thư viện trước (tối ưu cache)
 COPY package*.json ./
 
-# Install all dependencies
+# Cài đặt các dependencies
+# Dùng npm install để đảm bảo cài đủ cả devDependencies nếu cần build
 RUN npm install
 
-# Copy application code
-COPY . /app/
+# Copy toàn bộ source code hiện tại vào container
+COPY . .
 
 # Tạo các thư mục dữ liệu cần thiết
-RUN mkdir -p /app/data/cookies
+RUN mkdir -p data/cookies data/zalo_data
 
 # Mở cổng 3000
 EXPOSE 3000
 
-# Khởi động server
-CMD ["node", "src/server.js"]
+# Khởi động server bằng npm start
+CMD ["npm", "start"]

@@ -12,11 +12,33 @@ const MAX_ACCOUNTS_PER_PROXY = 3;
 class ProxyService {
     constructor() {
         this.RAW_PROXIES = [];
+        this.init();
+    }
+
+    init() {
+        // Đảm bảo thư mục data tồn tại
+        const dataDir = path.dirname(proxiesFilePath);
+        if (!fs.existsSync(dataDir)) {
+            try {
+                fs.mkdirSync(dataDir, { recursive: true });
+                console.log(`Created data directory: ${dataDir}`);
+            } catch (err) {
+                console.error(`Error creating data directory: ${err.message}`);
+            }
+        }
+
         try {
-            const data = fs.readFileSync(proxiesFilePath, 'utf8');
-            this.RAW_PROXIES = JSON.parse(data);
+            if (!fs.existsSync(proxiesFilePath)) {
+                console.log('proxies.json not found, creating new empty file...');
+                fs.writeFileSync(proxiesFilePath, '[]', 'utf8');
+                this.RAW_PROXIES = [];
+            } else {
+                const data = fs.readFileSync(proxiesFilePath, 'utf8');
+                this.RAW_PROXIES = JSON.parse(data);
+            }
         } catch (err) {
-            console.error('Không thể đọc file proxies.json:', err);
+            console.error('Error initializing proxies.json:', err.message);
+            // Fallback to empty array if file is corrupted or unreadable
             this.RAW_PROXIES = [];
         }
         this.PROXIES = this.RAW_PROXIES.map(p => ({ url: p, usedCount: 0, accounts: [] }));
