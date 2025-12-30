@@ -74,14 +74,21 @@ app.use((req, res, next) => {
 
 // Middleware xác thực cho tất cả các route trừ những route công khai
 app.use((req, res, next) => {
-  // Bỏ qua xác thực cho các API route và các route công khai
+  // Bỏ qua xác thực cho các route công khai
   if (isPublicRoute(req.path)) {
     console.log(`Skipping auth for public route: ${req.path}`);
     return next();
   }
 
-  // Áp dụng middleware xác thực cho các route khác
-  console.log(`Applying auth middleware for protected route: ${req.path}`);
+  // Các route API (bắt đầu bằng /api/) sẽ tự xử lý authentication
+  // với apiAccessMiddleware trong từng route, nên skip global auth
+  if (req.path.startsWith('/api/')) {
+    console.log(`Skipping global auth for API route: ${req.path} (will be handled by route-specific middleware)`);
+    return next();
+  }
+
+  // Áp dụng middleware xác thực cho các route UI khác
+  console.log(`Applying auth middleware for protected UI route: ${req.path}`);
   authMiddleware(req, res, next);
 });
 

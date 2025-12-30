@@ -305,11 +305,24 @@ export const authMiddleware = (req, res, next) => {
 
 // Middleware kiểm tra quyền admin
 export const adminMiddleware = (req, res, next) => {
+  // 1. Check API Key first
+  const apiKey = req.headers['x-api-key'];
+  if (apiKey) {
+    const user = getUserByApiKey(apiKey);
+    if (user && user.role === 'admin') {
+      req.user = user;
+      return next();
+    }
+    // API key was provided but user is not admin
+    return res.status(403).json({ success: false, message: 'Admin access required' });
+  }
+
+  // 2. Fallback to Session
   if (req.session && req.session.authenticated && req.session.role === 'admin') {
     return next();
   }
 
-  res.status(403).send('Không có quyền truy cập. Chỉ admin mới có thể thực hiện chức năng này.');
+  res.status(403).json({ success: false, message: 'Không có quyền truy cập. Chỉ admin mới có thể thực hiện chức năng này.' });
 };
 
 // Middleware xác thực API key hoặc Session
@@ -382,6 +395,8 @@ export const publicRoutes = [
   '/', // Trang chủ hiển thị nút đăng nhập
   '/admin-login', // Trang đăng nhập
   '/session-test', // Trang kiểm tra session
+  '/zalo-login', // Trang và API đăng nhập Zalo (hỗ trợ API key)
+  '/api-docs', // Swagger API documentation
   '/api/login', // API đăng nhập
   '/api/simple-login', // API đăng nhập đơn giản
   '/api/test-login', // API đăng nhập test
@@ -400,6 +415,12 @@ export const publicRoutes = [
 // Kiểm tra xem route có phải là public hay không
 export const isPublicRoute = (path) => {
   console.log('Checking if route is public:', path);
+
+  // Kiểm tra /api-docs và tất cả sub-paths (swagger assets)
+  if (path.startsWith('/api-docs')) {
+    console.log('Is api-docs or swagger asset:', true);
+    return true;
+  }
 
   // Kiểm tra các route API công khai
   if (path.startsWith('/api/')) {
