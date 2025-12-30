@@ -19,6 +19,12 @@ const __dirname = path.dirname(__filename);
 
 // Load environment variables from .env file
 dotenv.config({ path: path.join(__dirname, 'config', '.env') });
+// Also load from root .env if it exists (overriding config/.env if conflicts, or filling gaps)
+const rootEnvPath = path.join(process.cwd(), '.env');
+if (fs.existsSync(rootEnvPath)) {
+    dotenv.config({ path: rootEnvPath, override: true });
+    console.log("Loaded environment variables from root .env");
+}
 
 const app = express();
 

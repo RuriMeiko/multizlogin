@@ -949,7 +949,10 @@ export async function handleAccountAction(req, res) {
 
 // Hàm gửi webhook khi đăng nhập thành công
 async function sendLoginSuccessWebhook(profile, trackingId, customProxy, proxyUsed, useCustomProxy) {
-    if (!process.env.WEBHOOK_LOGIN_SUCCESS) return;
+    if (!process.env.WEBHOOK_LOGIN_SUCCESS) {
+        console.warn('[Webhook] WEBHOOK_LOGIN_SUCCESS environment variable is not set. Skipping login webhook.');
+        return;
+    }
 
     try {
         if (!profile) {
@@ -973,7 +976,7 @@ async function sendLoginSuccessWebhook(profile, trackingId, customProxy, proxyUs
             timestamp: Date.now()
         };
 
-        console.log(`[Webhook] Đang gửi thông báo đăng nhập thành công cho ${displayName} (${ownId})...`);
+        console.log(`[Webhook] Đang gửi thông báo đăng nhập thành công cho ${displayName} (${ownId}) tới ${process.env.WEBHOOK_LOGIN_SUCCESS}...`);
         const response = await nodefetch(process.env.WEBHOOK_LOGIN_SUCCESS, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1128,7 +1131,7 @@ export async function loginZaloAccount(customProxy, cred, trackingId) {
             console.log(`Thông tin tài khoản: ID=${ownId}, Tên=${displayName}, SĐT=${phoneNumber}`);
 
             // Call Webhook
-            sendLoginSuccessWebhook(profile, trackingId, customProxy, proxyUsed, useCustomProxy);
+            await sendLoginSuccessWebhook(profile, trackingId, customProxy, proxyUsed, useCustomProxy);
 
             const existingAccountIndex = zaloAccounts.findIndex(acc => acc.ownId === ownId);
             if (existingAccountIndex !== -1) {

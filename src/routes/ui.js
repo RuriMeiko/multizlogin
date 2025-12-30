@@ -176,7 +176,7 @@ router.get('/accounts', (req, res) => {
 
 // Endpoint cập nhật 3 webhook URL
 router.post('/updateWebhook', (req, res) => {
-  const { messageWebhookUrl, groupEventWebhookUrl, reactionWebhookUrl } = req.body;
+  const { messageWebhookUrl, groupEventWebhookUrl, reactionWebhookUrl, webhookLoginSuccess } = req.body;
   // Kiểm tra tính hợp lệ của từng URL
   if (!messageWebhookUrl || !messageWebhookUrl.startsWith("http")) {
       return res.status(400).json({ success: false, error: 'messageWebhookUrl không hợp lệ' });
@@ -187,11 +187,18 @@ router.post('/updateWebhook', (req, res) => {
   if (!reactionWebhookUrl || !reactionWebhookUrl.startsWith("http")) {
       return res.status(400).json({ success: false, error: 'reactionWebhookUrl không hợp lệ' });
   }
+  // webhookLoginSuccess là tùy chọn hoặc có thể bắt buộc tùy logic, ở đây cho phép tùy chọn nhưng nếu có phải valid
+  if (webhookLoginSuccess && !webhookLoginSuccess.startsWith("http")) {
+      return res.status(400).json({ success: false, error: 'webhookLoginSuccess không hợp lệ' });
+  }
 
   // Update process.env variables
   process.env.MESSAGE_WEBHOOK_URL = messageWebhookUrl;
   process.env.GROUP_EVENT_WEBHOOK_URL = groupEventWebhookUrl;
   process.env.REACTION_WEBHOOK_URL = reactionWebhookUrl;
+  if (webhookLoginSuccess) {
+      process.env.WEBHOOK_LOGIN_SUCCESS = webhookLoginSuccess;
+  }
 
   // Function to update or add a key in the .env content
   const updateEnvVar = (content, key, value) => {
@@ -218,6 +225,9 @@ router.post('/updateWebhook', (req, res) => {
   rootEnvContent = updateEnvVar(rootEnvContent, 'MESSAGE_WEBHOOK_URL', messageWebhookUrl);
   rootEnvContent = updateEnvVar(rootEnvContent, 'GROUP_EVENT_WEBHOOK_URL', groupEventWebhookUrl);
   rootEnvContent = updateEnvVar(rootEnvContent, 'REACTION_WEBHOOK_URL', reactionWebhookUrl);
+  if (webhookLoginSuccess) {
+      rootEnvContent = updateEnvVar(rootEnvContent, 'WEBHOOK_LOGIN_SUCCESS', webhookLoginSuccess);
+  }
 
   // Also update Docker volume .env file
   const dockerEnvPath = path.join(process.cwd(), 'zalo_data', '.env');
@@ -232,6 +242,9 @@ router.post('/updateWebhook', (req, res) => {
   dockerEnvContent = updateEnvVar(dockerEnvContent, 'MESSAGE_WEBHOOK_URL', messageWebhookUrl);
   dockerEnvContent = updateEnvVar(dockerEnvContent, 'GROUP_EVENT_WEBHOOK_URL', groupEventWebhookUrl);
   dockerEnvContent = updateEnvVar(dockerEnvContent, 'REACTION_WEBHOOK_URL', reactionWebhookUrl);
+  if (webhookLoginSuccess) {
+      dockerEnvContent = updateEnvVar(dockerEnvContent, 'WEBHOOK_LOGIN_SUCCESS', webhookLoginSuccess);
+  }
 
   // Write to both .env files
   try {
