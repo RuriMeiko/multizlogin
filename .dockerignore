@@ -1,7 +1,10 @@
 node_modules
 npm-debug.log
+data
 zalo_data
 .git
 .gitignore
 .env
-*.md 
+*.md
+pre_publish_backup
+ 

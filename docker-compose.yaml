@@ -1,7 +1,10 @@
 version: "3.3"
 services:
   zalo-server:
-    image: cangphamdocker/zalo-server:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: zalo-multi-login:latest
     ports:
       - "3000:3000"
     volumes:
@@ -11,5 +14,5 @@ services:
       - MESSAGE_WEBHOOK_URL=${MESSAGE_WEBHOOK_URL}
       - GROUP_EVENT_WEBHOOK_URL=${GROUP_EVENT_WEBHOOK_URL}
       - REACTION_WEBHOOK_URL=${REACTION_WEBHOOK_URL}
+      - SESSION_SECRET=${SESSION_SECRET:-zalo-server-secret-key}
     restart: always
-    working_dir: /app

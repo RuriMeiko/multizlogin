@@ -3,21 +3,20 @@ FROM cangphamdocker/zalo-server:latest
 # Set work directory
 WORKDIR /app
 
-# Copy package.json and package-lock.json (if exists)
+# Copy package files first (for better layer caching)
 COPY package*.json ./
 
-# Install dependencies
+# Install all dependencies
 RUN npm install
 
-# Sao chép toàn bộ thư mục src vào thư mục gốc của container
-COPY src/ /app/
+# Copy application code
+COPY . /app/
 
 # Tạo các thư mục dữ liệu cần thiết
 RUN mkdir -p /app/data/cookies
 
-# Đảm bảo quyền và làm sạch bộ nhớ cache
-RUN npm cache clean --force
-
-# Mở cổng và định nghĩa điểm vào (entrypoint)
+# Mở cổng 3000
 EXPOSE 3000
-CMD ["node", "server.js"]
+
+# Khởi động server
+CMD ["node", "src/server.js"]

@@ -895,6 +895,14 @@ export async function handleAccountAction(req, res) {
                 break;
             }
 
+            case 'getUserInfo': {
+                // data: { userId }
+                const { userId } = data;
+                if (!userId) throw new Error('Missing userId');
+                result = await api.getUserInfo(userId);
+                break;
+            }
+
             case 'getGroupInfo': {
                 // data: { groupId }
                 const { groupId } = data;
@@ -942,8 +950,8 @@ export async function handleAccountAction(req, res) {
         });
 
     } catch (error) {
-        // console.error('Error in handleAccountAction:', error);
-        res.status(500).json({ success: false, error: error.message });
+        console.error('Error in handleAccountAction:', error);
+        res.status(500).json({ success: false, error: error.message, stack: error.stack });
     }
 }
 

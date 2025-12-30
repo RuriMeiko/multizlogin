@@ -11,6 +11,11 @@ const options = {
         name: 'MultiZlogin Support',
       },
     },
+    tags: [
+      { name: 'Auth', description: 'Authentication and User Management' },
+      { name: 'Account', description: 'Zalo Account session management' },
+      { name: 'Zalo', description: 'Zalo Bot interactions (Messages, Groups, etc.)' }
+    ],
     servers: [
       {
         url: '/',

@@ -529,7 +529,7 @@ router.post('/sendImagesToGroupByAccount', sendImagesToGroupByAccount);
  *                 description: The ownId or phoneNumber of the account to use
  *               action:
  *                 type: string
- *                 enum: [sendMessage, sendTyping, sendSticker, findUser, getGroupInfo, addReaction, undo]
+ *                 enum: [sendMessage, sendTyping, sendSticker, findUser, getUserInfo, getGroupInfo, addReaction, undo]
  *                 description: The action to perform
  *               data:
  *                 type: object
@@ -538,13 +538,20 @@ router.post('/sendImagesToGroupByAccount', sendImagesToGroupByAccount);
  *             sendMessage:
  *               summary: Send a text message
  *               value:
- *                 accountSelection: "your_phone_or_ownId"
+ *                 accountSelection: "0912345678"
  *                 action: "sendMessage"
  *                 data:
- *                   threadId: "user_or_group_id"
- *                   message: "Hello from the API!"
+ *                   threadId: "123456789012345"
+ *                   message: "Hello from MultiZlogin Demo!"
  *                   type: "user"
- *             sendTyping:
+ *             getUserInfo:
+ *               summary: Get Info by User ID
+ *               value:
+ *                 accountSelection: "0912345678"
+ *                 action: "getUserInfo"
+ *                 data:
+ *                   userId: "123456789012345"
+ *             sendSticker:
  *               summary: Send a typing indicator
  *               value:
  *                 accountSelection: "your_phone_or_ownId"
