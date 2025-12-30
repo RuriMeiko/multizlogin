@@ -10,6 +10,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { zaloAccounts, loginZaloAccount } from './api/zalo/zalo.js';
+import swaggerUi from 'swagger-ui-express';
+import { specs } from './config/swagger.js';
 
 // Dành cho ES Module: xác định __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -93,6 +95,9 @@ app.use((req, res, next) => {
   console.log(`Applying auth middleware for protected route: ${req.path}`);
   authMiddleware(req, res, next);
 });
+
+// Swagger UI
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
 
 // Thiết lập route
 app.use('/', routes);

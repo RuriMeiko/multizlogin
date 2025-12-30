@@ -68,6 +68,41 @@ router.get('/zalo-login', (req, res) => {
 });
 
 // Xử lý đăng nhập: sử dụng proxy do người dùng nhập nếu hợp lệ, nếu không sẽ sử dụng proxy mặc định
+/**
+ * @swagger
+ * /zalo-login:
+ *   post:
+ *     summary: Generate a QR code for Zalo login
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               proxy:
+ *                 type: string
+ *                 description: Proxy URL to use for this login session
+ *               id:
+ *                 type: string
+ *                 description: Optional tracking ID to be returned in the success webhook
+ *     responses:
+ *       200:
+ *         description: QR Code generated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 qrCodeImage:
+ *                   type: string
+ *                   description: Base64 encoded QR code image
+ *       500:
+ *         description: Internal server error
+ */
 router.post('/zalo-login', async (req, res) => {
     try {
         console.log('Nhận yêu cầu tạo mã QR với dữ liệu:', req.body);

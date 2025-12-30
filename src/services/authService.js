@@ -350,7 +350,8 @@ export const publicRoutes = [
   '/api/sendImageToUser',
   '/api/sendImagesToUser',
   '/api/sendImageToGroup',
-  '/api/sendImagesToGroup'
+  '/api/sendImagesToGroup',
+  '/api-docs'
 ];
 
 // Kiểm tra xem route có phải là public hay không

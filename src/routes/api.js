@@ -19,6 +19,7 @@ import {
     // New APIs for account management
     getLoggedAccounts,
     getAccountDetails,
+    deleteAccount,
     // N8N-friendly wrapper APIs
     findUserByAccount,
     getUserInfoByAccount,
@@ -32,7 +33,8 @@ import {
     sendImageToUserByAccount,
     sendImagesToUserByAccount,
     sendImageToGroupByAccount,
-    sendImagesToGroupByAccount
+    sendImagesToGroupByAccount,
+    handleAccountAction
 } from '../api/zalo/zalo.js';
 import { validateUser, adminMiddleware, addUser, getAllUsers, changePassword } from '../services/authService.js';
 import {
@@ -294,11 +296,114 @@ router.post('/sendImageToGroup', sendImageToGroup);
 router.post('/sendImagesToGroup', sendImagesToGroup);
 
 // ===== NEW ACCOUNT MANAGEMENT APIs =====
+/**
+ * @swagger
+ * /api/accounts:
+ *   get:
+ *     summary: Get a list of logged-in Zalo accounts
+ *     tags: [Account]
+ *     responses:
+ *       200:
+ *         description: List of accounts
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       ownId:
+ *                         type: string
+ *                       phoneNumber:
+ *                         type: string
+ *                       proxy:
+ *                         type: string
+ *                       isOnline:
+ *                         type: boolean
+ *                 total:
+ *                   type: integer
+ */
 // API để lấy danh sách tài khoản đã đăng nhập
 router.get('/accounts', getLoggedAccounts);
 
 // API để lấy thông tin chi tiết một tài khoản
+/**
+ * @swagger
+ * /api/accounts/{ownId}:
+ *   get:
+ *     summary: Get details of a specific Zalo account
+ *     tags: [Account]
+ *     parameters:
+ *       - in: path
+ *         name: ownId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the account to retrieve
+ *     responses:
+ *       200:
+ *         description: Account details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     ownId:
+ *                       type: string
+ *                     phoneNumber:
+ *                       type: string
+ *                     proxy:
+ *                       type: string
+ *                     profile:
+ *                       type: object
+ *                     isOnline:
+ *                       type: boolean
+ *       404:
+ *         description: Account not found
+ */
 router.get('/accounts/:ownId', getAccountDetails);
+
+/**
+ * @swagger
+ * /api/accounts/{ownId}:
+ *   delete:
+ *     summary: Delete a logged-in Zalo account
+ *     tags: [Account]
+ *     parameters:
+ *       - in: path
+ *         name: ownId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the account to delete
+ *     responses:
+ *       200:
+ *         description: Account deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *       404:
+ *         description: Account not found
+ *       500:
+ *         description: Internal server error
+ */
+router.delete('/accounts/:ownId', deleteAccount);
 
 // ===== N8N-FRIENDLY WRAPPER APIs =====
 // API tìm user với account selection (thay vì ownId)
@@ -339,6 +444,67 @@ router.post('/sendImageToGroupByAccount', sendImageToGroupByAccount);
 
 // API gửi nhiều hình ảnh đến nhóm với account selection
 router.post('/sendImagesToGroupByAccount', sendImagesToGroupByAccount);
+
+/**
+ * @swagger
+ * /api/account/action:
+ *   post:
+ *     summary: Execute an action on a specific Zalo account
+ *     tags: [Account]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - accountSelection
+ *               - action
+ *               - data
+ *             properties:
+ *               accountSelection:
+ *                 type: string
+ *                 description: The ownId or phoneNumber of the account to use
+ *               action:
+ *                 type: string
+ *                 enum: [sendMessage, sendTyping, sendSticker, findUser, getGroupInfo, addReaction, undo]
+ *                 description: The action to perform
+ *               data:
+ *                 type: object
+ *                 description: Parameters for the action
+ *                 properties:
+ *                   threadId:
+ *                     type: string
+ *                     description: Target thread ID (for messaging actions)
+ *                   message:
+ *                     type: string
+ *                     description: Message content (for sendMessage)
+ *                   type:
+ *                     type: string
+ *                     enum: [user, group]
+ *                     default: user
+ *                     description: Thread type
+ *     responses:
+ *       200:
+ *         description: Action executed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                 usedAccount:
+ *                   type: object
+ *       400:
+ *         description: Invalid input or missing parameters
+ *       500:
+ *         description: Internal server error
+ */
+// API generic interaction webhook
+router.post('/account/action', handleAccountAction);
 
 // API kiểm tra trạng thái session
 router.get('/session-test', (req, res) => {

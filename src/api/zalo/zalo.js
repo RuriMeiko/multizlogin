@@ -58,6 +58,42 @@ export async function getAccountDetails(req, res) {
     }
 }
 
+// API xóa tài khoản đã đăng nhập
+export async function deleteAccount(req, res) {
+    try {
+        const { ownId } = req.params;
+        const accountIndex = zaloAccounts.findIndex(acc => acc.ownId === ownId);
+
+        if (accountIndex === -1) {
+            return res.status(404).json({ error: 'Không tìm thấy tài khoản' });
+        }
+
+        // Xóa file cookie
+        const cookiesDir = './data/cookies';
+        const cookieFile = `${cookiesDir}/cred_${ownId}.json`;
+        if (fs.existsSync(cookieFile)) {
+            try {
+                fs.unlinkSync(cookieFile);
+                console.log(`Đã xóa file cookie: ${cookieFile}`);
+            } catch (err) {
+                console.error(`Lỗi khi xóa file cookie ${cookieFile}:`, err);
+                // Vẫn tiếp tục xóa khỏi bộ nhớ ngay cả khi lỗi xóa file
+            }
+        }
+
+        // Xóa khỏi danh sách zaloAccounts
+        zaloAccounts.splice(accountIndex, 1);
+        console.log(`Đã xóa tài khoản ${ownId} khỏi danh sách`);
+
+        res.json({
+            success: true,
+            message: `Đã xóa tài khoản ${ownId} thành công`
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+}
+
 // ===== N8N-FRIENDLY WRAPPER APIs =====
 // Các API này sử dụng account selection thay vì ownId
 
@@ -804,6 +840,156 @@ export async function sendImagesToGroup(req, res) {
     }
 }
 
+// API webhook để tương tác với tài khoản
+export async function handleAccountAction(req, res) {
+    try {
+        const { accountSelection, action, data } = req.body;
+
+        if (!action) {
+            return res.status(400).json({ error: 'Action is required' });
+        }
+
+        const account = getAccountFromSelection(accountSelection);
+        const api = account.api;
+        let result;
+
+        switch (action) {
+            case 'sendMessage': {
+                // data: { message, threadId, type (optional), quote (optional) }
+                const { message, threadId, type, quote } = data;
+                if (!message || !threadId) throw new Error('Missing message or threadId');
+                
+                const msgType = type === 'group' ? ThreadType.Group : ThreadType.User;
+                const msgContent = typeof message === 'string' ? { msg: message, quote } : message;
+                
+                result = await api.sendMessage(msgContent, threadId, msgType);
+                break;
+            }
+
+            case 'sendTyping': {
+                // data: { threadId, type (optional) }
+                const { threadId, type } = data;
+                if (!threadId) throw new Error('Missing threadId');
+                
+                const msgType = type === 'group' ? ThreadType.Group : ThreadType.User;
+                result = await api.sendTypingEvent(threadId, msgType);
+                break;
+            }
+            
+            case 'sendSticker': {
+                 // data: { sticker, threadId, type (optional) }
+                 // sticker can be object { id, cateId, type }
+                 const { sticker, threadId, type } = data;
+                 if (!sticker || !threadId) throw new Error('Missing sticker or threadId');
+
+                 const msgType = type === 'group' ? ThreadType.Group : ThreadType.User;
+                 result = await api.sendSticker(sticker, threadId, msgType);
+                 break;
+            }
+
+            case 'findUser': {
+                // data: { phoneNumber }
+                const { phoneNumber } = data;
+                if (!phoneNumber) throw new Error('Missing phoneNumber');
+                result = await api.findUser(phoneNumber);
+                break;
+            }
+
+            case 'getGroupInfo': {
+                // data: { groupId }
+                const { groupId } = data;
+                if (!groupId) throw new Error('Missing groupId');
+                result = await api.getGroupInfo(groupId);
+                break;
+            }
+
+            case 'addReaction': {
+                // data: { icon, dest: { data: { msgId, cliMsgId, ... }, threadId, type } }
+                const { icon, dest } = data;
+                // Basic validation, dest usually comes from a previous message event
+                if (!icon || !dest) throw new Error('Missing icon or dest');
+                
+                // Map type string to enum if needed
+                if (typeof dest.type === 'string') {
+                    dest.type = dest.type === 'group' ? ThreadType.Group : ThreadType.User;
+                }
+
+                result = await api.addReaction(icon, dest);
+                break;
+            }
+
+            case 'undo': {
+                // data: { msgId, cliMsgId, threadId, type }
+                const { msgId, cliMsgId, threadId, type } = data;
+                if (!msgId || !cliMsgId || !threadId) throw new Error('Missing msgId, cliMsgId, or threadId');
+                
+                const msgType = type === 'group' ? ThreadType.Group : ThreadType.User;
+                result = await api.undo({ msgId, cliMsgId }, threadId, msgType);
+                break;
+            }
+
+            default:
+                return res.status(400).json({ error: `Action '${action}' not supported` });
+        }
+
+        res.json({
+            success: true,
+            data: result,
+            usedAccount: {
+                ownId: account.ownId,
+                phoneNumber: account.phoneNumber
+            }
+        });
+
+    } catch (error) {
+        // console.error('Error in handleAccountAction:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+}
+
+// Hàm gửi webhook khi đăng nhập thành công
+async function sendLoginSuccessWebhook(profile, trackingId, customProxy, proxyUsed, useCustomProxy) {
+    if (!process.env.WEBHOOK_LOGIN_SUCCESS) return;
+
+    try {
+        if (!profile) {
+            console.error('[Webhook] Không có thông tin profile để gửi webhook');
+            return;
+        }
+
+        const phoneNumber = profile.phoneNumber;
+        const ownId = profile.userId;
+        const displayName = profile.displayName;
+
+        const webhookPayload = {
+            event: 'login_success',
+            id: trackingId || null,
+            data: {
+                ownId,
+                displayName,
+                phoneNumber,
+                proxy: useCustomProxy ? customProxy : (proxyUsed && proxyUsed.url)
+            },
+            timestamp: Date.now()
+        };
+
+        console.log(`[Webhook] Đang gửi thông báo đăng nhập thành công cho ${displayName} (${ownId})...`);
+        const response = await nodefetch(process.env.WEBHOOK_LOGIN_SUCCESS, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(webhookPayload)
+        });
+
+        if (response.ok) {
+            console.log(`[Webhook] Gửi thành công! Status: ${response.status}`);
+        } else {
+            console.error(`[Webhook] Gửi thất bại! Status: ${response.status}`);
+        }
+    } catch (error) {
+        console.error('[Webhook] Lỗi khi gửi webhook đăng nhập:', error.message);
+    }
+}
+
 export async function loginZaloAccount(customProxy, cred, trackingId) {
     let loginResolve;
     return new Promise(async (resolve, reject) => {
@@ -903,9 +1089,6 @@ export async function loginZaloAccount(customProxy, cred, trackingId) {
                             const qrCodeImage = `data:image/png;base64,${qrData.data.image}`;
                             console.log('Đã tạo mã QR, độ dài:', qrCodeImage.length);
                             resolve(qrCodeImage);
-                        } else {
-                            console.error('Không thể lấy mã QR từ Zalo SDK');
-                            reject(new Error("Không thể lấy mã QR"));
                         }
                     });
                 }
@@ -917,17 +1100,9 @@ export async function loginZaloAccount(customProxy, cred, trackingId) {
                         const qrCodeImage = `data:image/png;base64,${qrData.data.image}`;
                         console.log('Đã tạo mã QR, độ dài:', qrCodeImage.length);
                         resolve(qrCodeImage);
-                    } else {
-                        console.error('Không thể lấy mã QR từ Zalo SDK');
-                        reject(new Error("Không thể lấy mã QR"));
                     }
                 });
             }
-
-            api.listener.onConnected(() => {
-                console.log("Zalo SDK đã kết nối");
-                resolve(true);
-            });
 
             console.log('Thiết lập event listeners');
             setupEventListeners(api, loginResolve);
@@ -952,41 +1127,17 @@ export async function loginZaloAccount(customProxy, cred, trackingId) {
             const displayName = profile.displayName;
             console.log(`Thông tin tài khoản: ID=${ownId}, Tên=${displayName}, SĐT=${phoneNumber}`);
 
-            // Call Webhook if configured
-            if (process.env.WEBHOOK_LOGIN_SUCCESS) {
-                try {
-                    const webhookPayload = {
-                        event: 'login_success',
-                        id: trackingId || null,
-                        data: {
-                            ownId,
-                            displayName,
-                            phoneNumber,
-                            proxy: useCustomProxy ? customProxy : (proxyUsed && proxyUsed.url)
-                        },
-                        timestamp: Date.now()
-                    };
+            // Call Webhook
+            sendLoginSuccessWebhook(profile, trackingId, customProxy, proxyUsed, useCustomProxy);
 
-                    console.log('Sending login success webhook...', webhookPayload);
-                    nodefetch(process.env.WEBHOOK_LOGIN_SUCCESS, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(webhookPayload)
-                    }).then(res => console.log(`Login webhook response: ${res.status}`))
-                      .catch(err => console.error('Login webhook error:', err));
-                } catch (webhookErr) {
-                    console.error('Error initiating login webhook:', webhookErr);
-                }
-            }
-
-            const existingAccountIndex = zaloAccounts.findIndex(acc => acc.ownId === api.getOwnId());
+            const existingAccountIndex = zaloAccounts.findIndex(acc => acc.ownId === ownId);
             if (existingAccountIndex !== -1) {
                 // Thay thế tài khoản cũ bằng tài khoản mới
-                zaloAccounts[existingAccountIndex] = { api: api, ownId: api.getOwnId(), proxy: useCustomProxy ? customProxy : (proxyUsed && proxyUsed.url), phoneNumber: phoneNumber };
+                zaloAccounts[existingAccountIndex] = { api: api, ownId: ownId, proxy: useCustomProxy ? customProxy : (proxyUsed && proxyUsed.url) };
                 console.log('Đã cập nhật tài khoản hiện có trong danh sách zaloAccounts');
             } else {
                 // Thêm tài khoản mới nếu không tìm thấy tài khoản cũ
-                zaloAccounts.push({ api: api, ownId: api.getOwnId(), proxy: useCustomProxy ? customProxy : (proxyUsed && proxyUsed.url), phoneNumber: phoneNumber });
+                zaloAccounts.push({ api: api, ownId: ownId, proxy: useCustomProxy ? customProxy : (proxyUsed && proxyUsed.url) });
                 console.log('Đã thêm tài khoản mới vào danh sách zaloAccounts');
             }
 
@@ -1017,7 +1168,7 @@ export async function loginZaloAccount(customProxy, cred, trackingId) {
                 }
             });
 
-            console.log(`Đã đăng nhập vào tài khoản ${ownId} (${displayName}) với số điện thoại ${phoneNumber} qua proxy ${useCustomProxy ? customProxy : (proxyUsed?.url || 'không có proxy')}`);
+            console.log(`Đã hoàn tất quá trình đăng nhập vào tài khoản ${ownId} qua proxy ${useCustomProxy ? customProxy : (proxyUsed?.url || 'không có proxy')}`);
         } catch (error) {
             console.error('Lỗi trong quá trình đăng nhập Zalo:', error);
             reject(error);
