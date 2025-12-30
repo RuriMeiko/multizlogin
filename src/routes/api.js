@@ -42,7 +42,7 @@ import {
     addUser, 
     getAllUsers, 
     changePassword,
-    apiAuthMiddleware,
+    apiAccessMiddleware,
     generateApiKeyForUser,
     getApiKeyForUser
 } from '../services/authService.js';
@@ -54,9 +54,6 @@ import {
 } from '../services/webhookService.js';
 
 const router = express.Router();
-// Router for API-key protected routes
-const protectedRouter = express.Router();
-protectedRouter.use(apiAuthMiddleware);
 
 // Dành cho ES Module: xác định __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -190,38 +187,43 @@ router.post('/user/generate-key', (req, res) => {
     res.json({ success: true, apiKey: newApiKey });
 });
 
-// Zalo-related APIs (API Key protected)
-protectedRouter.post('/findUser', findUser);
-protectedRouter.post('/getUserInfo', getUserInfo);
-protectedRouter.post('/sendFriendRequest', sendFriendRequest);
-protectedRouter.post('/sendmessage', sendMessage);
-protectedRouter.post('/createGroup', createGroup);
-protectedRouter.post('/getGroupInfo', getGroupInfo);
-protectedRouter.post('/addUserToGroup', addUserToGroup);
-protectedRouter.post('/removeUserFromGroup', removeUserFromGroup);
-protectedRouter.post('/sendImageToUser', sendImageToUser);
-protectedRouter.post('/sendImagesToUser', sendImagesToUser);
-protectedRouter.post('/sendImageToGroup', sendImageToGroup);
-protectedRouter.post('/sendImagesToGroup', sendImagesToGroup);
-protectedRouter.get('/accounts', getLoggedAccounts);
-protectedRouter.get('/accounts/:ownId', getAccountDetails);
-protectedRouter.delete('/accounts/:ownId', deleteAccount);
-protectedRouter.post('/findUserByAccount', findUserByAccount);
-protectedRouter.post('/sendMessageByAccount', sendMessageByAccount);
-protectedRouter.post('/sendImageByAccount', sendImageByAccount);
-protectedRouter.post('/getUserInfoByAccount', getUserInfoByAccount);
-protectedRouter.post('/sendFriendRequestByAccount', sendFriendRequestByAccount);
-protectedRouter.post('/createGroupByAccount', createGroupByAccount);
-protectedRouter.post('/getGroupInfoByAccount', getGroupInfoByAccount);
-protectedRouter.post('/addUserToGroupByAccount', addUserToGroupByAccount);
-protectedRouter.post('/removeUserFromGroupByAccount', removeUserFromGroupByAccount);
-protectedRouter.post('/sendImageToUserByAccount', sendImageToUserByAccount);
-protectedRouter.post('/sendImagesToUserByAccount', sendImagesToUserByAccount);
-protectedRouter.post('/sendImageToGroupByAccount', sendImageToGroupByAccount);
-protectedRouter.post('/sendImagesToGroupByAccount', sendImagesToGroupByAccount);
-protectedRouter.post('/account/action', handleAccountAction);
+// --- Zalo-related APIs (Protected by API Key or Session) ---
+router.post('/findUser', apiAccessMiddleware, findUser);
+router.post('/getUserInfo', apiAccessMiddleware, getUserInfo);
+router.post('/sendFriendRequest', apiAccessMiddleware, sendFriendRequest);
+router.post('/sendmessage', apiAccessMiddleware, sendMessage);
+router.post('/createGroup', apiAccessMiddleware, createGroup);
+router.post('/getGroupInfo', apiAccessMiddleware, getGroupInfo);
+router.post('/addUserToGroup', apiAccessMiddleware, addUserToGroup);
+router.post('/removeUserFromGroup', apiAccessMiddleware, removeUserFromGroup);
+router.post('/sendImageToUser', apiAccessMiddleware, sendImageToUser);
+router.post('/sendImagesToUser', apiAccessMiddleware, sendImagesToUser);
+router.post('/sendImageToGroup', apiAccessMiddleware, sendImageToGroup);
+router.post('/sendImagesToGroup', apiAccessMiddleware, sendImagesToGroup);
 
-router.use('/', protectedRouter);
+// Account Management
+router.get('/accounts', apiAccessMiddleware, getLoggedAccounts);
+router.get('/accounts/:ownId', apiAccessMiddleware, getAccountDetails);
+router.delete('/accounts/:ownId', apiAccessMiddleware, deleteAccount);
+
+// N8N-friendly wrappers
+router.post('/findUserByAccount', apiAccessMiddleware, findUserByAccount);
+router.post('/sendMessageByAccount', apiAccessMiddleware, sendMessageByAccount);
+router.post('/sendImageByAccount', apiAccessMiddleware, sendImageByAccount);
+router.post('/getUserInfoByAccount', apiAccessMiddleware, getUserInfoByAccount);
+router.post('/sendFriendRequestByAccount', apiAccessMiddleware, sendFriendRequestByAccount);
+router.post('/createGroupByAccount', apiAccessMiddleware, createGroupByAccount);
+router.post('/getGroupInfoByAccount', apiAccessMiddleware, getGroupInfoByAccount);
+router.post('/addUserToGroupByAccount', apiAccessMiddleware, addUserToGroupByAccount);
+router.post('/removeUserFromGroupByAccount', apiAccessMiddleware, removeUserFromGroupByAccount);
+router.post('/sendImageToUserByAccount', apiAccessMiddleware, sendImageToUserByAccount);
+router.post('/sendImagesToUserByAccount', apiAccessMiddleware, sendImagesToUserByAccount);
+router.post('/sendImageToGroupByAccount', apiAccessMiddleware, sendImageToGroupByAccount);
+router.post('/sendImagesToGroupByAccount', apiAccessMiddleware, sendImagesToGroupByAccount);
+
+// Generic Action Webhook
+router.post('/account/action', apiAccessMiddleware, handleAccountAction);
+// -----------------------------------------------------------------
 
 // Đổi mật khẩu
 router.post('/change-password', (req, res) => {

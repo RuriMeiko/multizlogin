@@ -312,21 +312,28 @@ export const adminMiddleware = (req, res, next) => {
   res.status(403).send('Không có quyền truy cập. Chỉ admin mới có thể thực hiện chức năng này.');
 };
 
-// Middleware xác thực API key
-export const apiAuthMiddleware = (req, res, next) => {
-    const apiKey = req.headers['x-api-key'];
-    if (!apiKey) {
-        return res.status(401).json({ success: false, message: 'API Key is missing' });
-    }
+// Middleware xác thực API key hoặc Session
+export const apiAccessMiddleware = (req, res, next) => {
+  const apiKey = req.headers['x-api-key'];
 
+  // 1. Check for API Key
+  if (apiKey) {
     const user = getUserByApiKey(apiKey);
-    if (!user) {
-        return res.status(403).json({ success: false, message: 'Invalid API Key' });
+    if (user) {
+      req.user = user; // Attach user for logging or other purposes
+      return next();
     }
+    // Key was provided but it's invalid
+    return res.status(403).json({ success: false, message: 'Invalid API Key' });
+  }
 
-    // Gắn thông tin user vào request để các handler sau có thể sử dụng
-    req.user = user;
-    next();
+  // 2. Fallback to Session-based authentication for UI
+  if (req.session && req.session.authenticated) {
+    return next();
+  }
+
+  // 3. If neither is valid, deny access
+  return res.status(401).json({ success: false, message: 'Authentication required. Provide an API Key or log in.' });
 };
 
 // Lấy toàn bộ danh sách người dùng (chỉ admin mới có quyền)
