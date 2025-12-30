@@ -15,7 +15,7 @@ export function setupEventListeners(api, loginResolve) {
     // Lắng nghe sự kiện tin nhắn và gửi đến webhook được cấu hình cho tin nhắn
     api.listener.on("message", (msg) => {
         console.log(`[Webhook] Nhận được tin nhắn mới cho tài khoản ${ownId}. Đang xử lý webhook...`);
-        const messageWebhookUrl = getWebhookUrl("messageWebhookUrl", ownId);
+        const messageWebhookUrl = getWebhookUrl("messageWebhookUrl");
         
         if (messageWebhookUrl) {
             console.log(`[Webhook] Tìm thấy URL webhook tin nhắn: ${messageWebhookUrl}`);
@@ -41,7 +41,7 @@ export function setupEventListeners(api, loginResolve) {
 
     // Lắng nghe sự kiện nhóm và gửi đến webhook được cấu hình cho sự kiện nhóm
     api.listener.on("group_event", (data) => {
-        const groupEventWebhookUrl = getWebhookUrl("groupEventWebhookUrl", ownId);
+        const groupEventWebhookUrl = getWebhookUrl("groupEventWebhookUrl");
         if (groupEventWebhookUrl) {
             // Thêm ownId vào dữ liệu
             const dataWithOwnId = { ...data, _accountId: ownId };
@@ -51,7 +51,7 @@ export function setupEventListeners(api, loginResolve) {
 
     // Lắng nghe sự kiện reaction và gửi đến webhook được cấu hình cho reaction
     api.listener.on("reaction", (reaction) => {
-        const reactionWebhookUrl = getWebhookUrl("reactionWebhookUrl", ownId);
+        const reactionWebhookUrl = getWebhookUrl("reactionWebhookUrl");
         console.log("Nhận reaction:", reaction);
         if (reactionWebhookUrl) {
             // Thêm ownId vào dữ liệu

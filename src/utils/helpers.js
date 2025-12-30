@@ -8,8 +8,8 @@ import { getWebhookUrl as getConfigWebhookUrl } from '../services/webhookService
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-export function getWebhookUrl(key, ownId) {
-    return getConfigWebhookUrl(key, ownId);
+export function getWebhookUrl(key) {
+    return getConfigWebhookUrl(key);
 }
 
 export async function triggerN8nWebhook(msg, webhookUrl) {
