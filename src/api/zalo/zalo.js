@@ -1136,11 +1136,11 @@ export async function loginZaloAccount(customProxy, cred, trackingId) {
             const existingAccountIndex = zaloAccounts.findIndex(acc => acc.ownId === ownId);
             if (existingAccountIndex !== -1) {
                 // Thay thế tài khoản cũ bằng tài khoản mới
-                zaloAccounts[existingAccountIndex] = { api: api, ownId: ownId, proxy: useCustomProxy ? customProxy : (proxyUsed && proxyUsed.url) };
+                zaloAccounts[existingAccountIndex] = { api: api, ownId: ownId, proxy: useCustomProxy ? customProxy : (proxyUsed && proxyUsed.url), phoneNumber: phoneNumber };
                 console.log('Đã cập nhật tài khoản hiện có trong danh sách zaloAccounts');
             } else {
                 // Thêm tài khoản mới nếu không tìm thấy tài khoản cũ
-                zaloAccounts.push({ api: api, ownId: ownId, proxy: useCustomProxy ? customProxy : (proxyUsed && proxyUsed.url) });
+                zaloAccounts.push({ api: api, ownId: ownId, proxy: useCustomProxy ? customProxy : (proxyUsed && proxyUsed.url), phoneNumber: phoneNumber });
                 console.log('Đã thêm tài khoản mới vào danh sách zaloAccounts');
             }
 
