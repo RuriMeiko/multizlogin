@@ -472,18 +472,63 @@ router.post('/sendImagesToGroupByAccount', sendImagesToGroupByAccount);
  *               data:
  *                 type: object
  *                 description: Parameters for the action
- *                 properties:
- *                   threadId:
- *                     type: string
- *                     description: Target thread ID (for messaging actions)
- *                   message:
- *                     type: string
- *                     description: Message content (for sendMessage)
- *                   type:
- *                     type: string
- *                     enum: [user, group]
- *                     default: user
- *                     description: Thread type
+ *           examples:
+ *             sendMessage:
+ *               summary: Send a text message
+ *               value:
+ *                 accountSelection: "your_phone_or_ownId"
+ *                 action: "sendMessage"
+ *                 data:
+ *                   threadId: "user_or_group_id"
+ *                   message: "Hello from the API!"
+ *                   type: "user"
+ *             sendTyping:
+ *               summary: Send a typing indicator
+ *               value:
+ *                 accountSelection: "your_phone_or_ownId"
+ *                 action: "sendTyping"
+ *                 data:
+ *                   threadId: "user_or_group_id"
+ *                   type: "user"
+ *             findUser:
+ *               summary: Find a user by phone number
+ *               value:
+ *                 accountSelection: "your_phone_or_ownId"
+ *                 action: "findUser"
+ *                 data:
+ *                   phoneNumber: "victim_phone_number"
+ *             getGroupInfo:
+ *               summary: Get information about a group
+ *               value:
+ *                 accountSelection: "your_phone_or_ownId"
+ *                 action: "getGroupInfo"
+ *                 data:
+ *                   groupId: "group_id"
+ *             addReaction:
+ *               summary: Add a reaction to a message
+ *               description: "The 'dest' object would typically be retrieved from a message event."
+ *               value:
+ *                 accountSelection: "your_phone_or_ownId"
+ *                 action: "addReaction"
+ *                 data:
+ *                   icon: "/-heart"
+ *                   dest:
+ *                     data:
+ *                       msgId: "message_id"
+ *                       cliMsgId: "client_message_id"
+ *                       uidFrom: "sender_uid"
+ *                     threadId: "thread_id"
+ *                     type: "user"
+ *             undoMessage:
+ *               summary: Unsend (undo) a message
+ *               value:
+ *                 accountSelection: "your_phone_or_ownId"
+ *                 action: "undo"
+ *                 data:
+ *                   msgId: "message_id"
+ *                   cliMsgId: "client_message_id"
+ *                   threadId: "thread_id"
+ *                   type: "user"
  *     responses:
  *       200:
  *         description: Action executed successfully
