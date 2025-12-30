@@ -1068,10 +1068,12 @@ export async function loginZaloAccount(customProxy, cred, trackingId) {
                 agent: agent,
                 // @ts-ignore
                 polyfill: nodefetch,
+                selfListen: true, // Enable self-listening for messages
             });
         } else {
             console.log('Khởi tạo Zalo SDK không có proxy');
             zalo = new Zalo({
+                selfListen: true, // Enable self-listening for messages
             });
         }
 

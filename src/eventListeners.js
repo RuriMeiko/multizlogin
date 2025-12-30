@@ -14,11 +14,28 @@ export function setupEventListeners(api, loginResolve) {
     
     // Lắng nghe sự kiện tin nhắn và gửi đến webhook được cấu hình cho tin nhắn
     api.listener.on("message", (msg) => {
+        console.log(`[Webhook] Nhận được tin nhắn mới cho tài khoản ${ownId}. Đang xử lý webhook...`);
         const messageWebhookUrl = getWebhookUrl("messageWebhookUrl", ownId);
+        
         if (messageWebhookUrl) {
-            // Thêm ownId vào dữ liệu để webhook biết tin nhắn từ tài khoản nào
-            const msgWithOwnId = { ...msg, _accountId: ownId };
-            triggerN8nWebhook(msgWithOwnId, messageWebhookUrl);
+            console.log(`[Webhook] Tìm thấy URL webhook tin nhắn: ${messageWebhookUrl}`);
+            // Thêm ownId và messageType vào dữ liệu để webhook biết tin nhắn từ tài khoản nào và loại tin nhắn
+            const msgWithOwnId = { 
+                ...msg, 
+                _accountId: ownId,
+                _messageType: msg.isSelf ? 'self' : 'user' 
+            };
+            console.log(`[Webhook] Đang gửi dữ liệu đến webhook...`);
+            triggerN8nWebhook(msgWithOwnId, messageWebhookUrl)
+                .then(success => {
+                    if (success) {
+                        console.log(`[Webhook] Gửi webhook cho tin nhắn mới thành công.`);
+                    } else {
+                        console.error(`[Webhook] Gửi webhook cho tin nhắn mới thất bại.`);
+                    }
+                });
+        } else {
+            console.warn(`[Webhook] Không tìm thấy URL webhook cho tin nhắn mới của tài khoản ${ownId}. Bỏ qua.`);
         }
     });
 
