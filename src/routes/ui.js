@@ -306,11 +306,6 @@ router.get('/user-management', (req, res) => {
   res.render('user-management');
 });
 
-// Hiển thị trang quản lý webhook theo tài khoản
-router.get('/account-webhook-manager', (req, res) => {
-    res.render('account-webhook-manager');
-});
-
 // Hiển thị trang đổi mật khẩu
 router.get('/change-password', (req, res) => {
     // Kiểm tra xem người dùng đã đăng nhập chưa

@@ -46,12 +46,7 @@ import {
     generateApiKeyForUser,
     getApiKeyForUser
 } from '../services/authService.js';
-import {
-    getWebhookUrl,
-    setWebhookUrl,
-    removeWebhookConfig,
-    getAllWebhookConfigs
-} from '../services/webhookService.js';
+import { getWebhookUrl } from '../services/webhookService.js';
 
 const router = express.Router();
 
@@ -733,121 +728,6 @@ router.post('/test-json', (req, res) => {
     message: 'Test JSON thành công',
     receivedData: req.body || null
   });
-});
-
-// API quản lý webhook URLs theo số điện thoại
-
-// Endpoint để lấy tất cả cấu hình webhook
-router.get('/account-webhooks', (req, res) => {
-    try {
-        const webhookConfigs = getAllWebhookConfigs();
-        res.json({ success: true, data: webhookConfigs });
-    } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// Endpoint để lấy cấu hình webhook của một tài khoản
-router.get('/account-webhook/:ownId', (req, res) => {
-    try {
-        const { ownId } = req.params;
-
-        if (!ownId) {
-            return res.status(400).json({ success: false, error: 'ownId là bắt buộc' });
-        }
-
-        const messageWebhookUrl = getWebhookUrl('messageWebhookUrl', ownId);
-        const groupEventWebhookUrl = getWebhookUrl('groupEventWebhookUrl', ownId);
-        const reactionWebhookUrl = getWebhookUrl('reactionWebhookUrl', ownId);
-
-        res.json({
-            success: true,
-            data: {
-                ownId,
-                messageWebhookUrl,
-                groupEventWebhookUrl,
-                reactionWebhookUrl
-            }
-        });
-    } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// Endpoint để thiết lập webhook URL cho một tài khoản cụ thể
-router.post('/account-webhook', (req, res) => {
-    try {
-        const { ownId, messageWebhookUrl, groupEventWebhookUrl, reactionWebhookUrl } = req.body;
-
-        if (!ownId) {
-            return res.status(400).json({ success: false, error: 'ownId là bắt buộc' });
-        }
-
-        let success = true;
-
-        // Thiết lập từng loại webhook URL nếu được cung cấp
-        if (messageWebhookUrl !== undefined) {
-            success = success && setWebhookUrl(ownId, 'messageWebhookUrl', messageWebhookUrl);
-        }
-
-        if (groupEventWebhookUrl !== undefined) {
-            success = success && setWebhookUrl(ownId, 'groupEventWebhookUrl', groupEventWebhookUrl);
-        }
-
-        if (reactionWebhookUrl !== undefined) {
-            success = success && setWebhookUrl(ownId, 'reactionWebhookUrl', reactionWebhookUrl);
-        }
-
-        if (success) {
-            res.json({ success: true, message: 'Đã cập nhật webhook URLs cho tài khoản' });
-        } else {
-            res.status(500).json({ success: false, error: 'Lỗi khi cập nhật webhook URLs' });
-        }
-    } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// Endpoint để xóa cấu hình webhook của một tài khoản
-router.delete('/account-webhook/:ownId', (req, res) => {
-    try {
-        const { ownId } = req.params;
-
-        if (!ownId) {
-            return res.status(400).json({ success: false, error: 'ownId là bắt buộc' });
-        }
-
-        if (removeWebhookConfig(ownId)) {
-            res.json({ success: true, message: 'Đã xóa cấu hình webhook cho tài khoản' });
-        } else {
-            res.status(500).json({ success: false, error: 'Lỗi khi xóa cấu hình webhook' });
-        }
-    } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// Endpoint debug để kiểm tra trạng thái webhookConfig
-router.get('/debug-webhook-config', (req, res) => {
-    try {
-        const webhookConfigs = getAllWebhookConfigs();
-        const fileExists = fs.existsSync(path.join(__dirname, 'webhookConfig.json'));
-
-        res.json({
-            success: true,
-            configExists: !!webhookConfigs,
-            fileExists: fileExists,
-            data: webhookConfigs,
-            dirname: __dirname,
-            configPath: path.join(__dirname, 'webhookConfig.json')
-        });
-    } catch (error) {
-        res.status(500).json({
-            success: false,
-            error: error.message,
-            stack: error.stack
-        });
-    }
 });
 
 // Endpoint debug để kiểm tra file users.json

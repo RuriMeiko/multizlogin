@@ -3,7 +3,6 @@ import express from 'express';
 import session from 'express-session';
 import cookieParser from 'cookie-parser';
 import { authMiddleware, isPublicRoute } from './services/authService.js';
-import { loadWebhookConfig } from './services/webhookService.js';
 import routes from './routes/index.js';
 import fs from 'fs';
 import path from 'path';
@@ -26,6 +25,9 @@ if (fs.existsSync(rootEnvPath)) {
     console.log("Loaded environment variables from root .env");
 }
 
+// DEBUG: In log giá trị biến môi trường
+console.log(`[DEBUG] MESSAGE_WEBHOOK_URL in app.js: ${process.env.MESSAGE_WEBHOOK_URL}`);
+
 const app = express();
 
 // Cấu hình EJS
@@ -33,25 +35,6 @@ app.set('view engine', 'ejs');
 const viewsPath = path.join(__dirname, 'views');
 console.log('Views path:', viewsPath);
 app.set('views', viewsPath);
-
-// Kiểm tra thư mục views
-if (fs.existsSync(viewsPath)) {
-  const files = fs.readdirSync(viewsPath);
-  console.log('Views directory exists. Files:', files);
-} else {
-  console.error('Views directory does not exist at', viewsPath);
-  // Nếu không tồn tại, thử tạo thư mục
-  try {
-    fs.mkdirSync(viewsPath, { recursive: true });
-    console.log('Created views directory at', viewsPath);
-  } catch (error) {
-    console.error('Failed to create views directory:', error);
-  }
-}
-
-// Tải cấu hình webhook từ file
-loadWebhookConfig();
-console.log("Đã tải cấu hình webhook");
 
 // Thiết lập middleware
 app.use(express.json());
