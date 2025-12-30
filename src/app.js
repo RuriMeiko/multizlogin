@@ -19,9 +19,6 @@ const __dirname = path.dirname(__filename);
 // Load environment variables
 dotenv.config(); // Load from root .env if exists
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 // Also try loading from src/config/.env for backward compatibility
 const configEnvPath = path.join(__dirname, 'config', '.env');
 if (fs.existsSync(configEnvPath)) {
