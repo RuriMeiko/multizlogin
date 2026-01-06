@@ -248,6 +248,44 @@ export async function loginZaloAccount(customProxy, cred, trackingId, qrCallback
     });
 }
 
+// Đăng xuất tài khoản Zalo
+export async function logoutZaloAccount(ownId) {
+    const accountIndex = zaloAccounts.findIndex(acc => acc.ownId === ownId);
+    
+    if (accountIndex === -1) {
+        return { success: false, message: 'Không tìm thấy tài khoản' };
+    }
+    
+    try {
+        const account = zaloAccounts[accountIndex];
+        
+        // Stop listener if active
+        if (account.api && account.api.listener) {
+            try {
+                account.api.listener.stop();
+            } catch (e) {
+                console.log('Lỗi khi dừng listener:', e.message);
+            }
+        }
+        
+        // Remove from array
+        zaloAccounts.splice(accountIndex, 1);
+        
+        // Delete cookie file
+        const cookieFilePath = path.join(env.COOKIES_DIR, `cred_${ownId}.json`);
+        if (fs.existsSync(cookieFilePath)) {
+            fs.unlinkSync(cookieFilePath);
+            console.log(`Đã xóa cookie file: ${cookieFilePath}`);
+        }
+        
+        console.log(`Đã đăng xuất tài khoản: ${ownId}`);
+        return { success: true, message: 'Đăng xuất thành công' };
+    } catch (error) {
+        console.error('Lỗi khi đăng xuất:', error);
+        return { success: false, message: error.message };
+    }
+}
+
 // Khởi tạo đăng nhập từ cookies đã lưu
 export async function initLoginFromCookies() {
     const cookiesDir = env.COOKIES_DIR;

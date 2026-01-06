@@ -1,29 +1,50 @@
 // middlewares/authMiddleware.js - Authentication middlewares
 import { PUBLIC_ROUTES } from '../config/constants.js';
 import { getUserByApiKey } from '../services/authService.js';
+import env from '../config/env.js';
 
-// Middleware xác thực cho các route
+// Middleware xác thực cho các route (redirect to login page)
 export const authMiddleware = (req, res, next) => {
     if (req.session && req.session.authenticated) {
         return next();
     }
-    res.redirect('/admin-login');
+    res.redirect('/login');
+};
+
+// Middleware xác thực session (return 401)
+export const sessionAuthMiddleware = (req, res, next) => {
+    if (req.session && req.session.isAuthenticated) {
+        return next();
+    }
+    return res.status(401).json({
+        success: false,
+        message: 'Chưa đăng nhập'
+    });
 };
 
 // Middleware kiểm tra quyền admin
 export const adminMiddleware = (req, res, next) => {
-    // 1. Check API Key first
     const apiKey = req.headers['x-api-key'];
+    
+    // Check ENV API Key first
+    if (apiKey && apiKey === env.API_KEY) {
+        req.user = { username: 'api', role: 'admin' };
+        req.apiKeyValid = true;
+        return next();
+    }
+    
+    // Check user API Key
     if (apiKey) {
         const user = getUserByApiKey(apiKey);
         if (user && user.role === 'admin') {
             req.user = user;
+            req.apiKeyValid = true;
             return next();
         }
         return res.status(403).json({ success: false, message: 'Admin access required' });
     }
 
-    // 2. Fallback to Session
+    // Fallback to Session
     if (req.session && req.session.authenticated && req.session.role === 'admin') {
         return next();
     }
@@ -35,17 +56,25 @@ export const adminMiddleware = (req, res, next) => {
 export const apiAccessMiddleware = (req, res, next) => {
     const apiKey = req.headers['x-api-key'];
 
-    // 1. Check for API Key
+    // 1. Check ENV API Key first
+    if (apiKey && apiKey === env.API_KEY) {
+        req.user = { username: 'api', role: 'admin' };
+        req.apiKeyValid = true;
+        return next();
+    }
+
+    // 2. Check user API Key from database
     if (apiKey) {
         const user = getUserByApiKey(apiKey);
         if (user) {
             req.user = user;
+            req.apiKeyValid = true;
             return next();
         }
-        return res.status(403).json({ success: false, message: 'Invalid API Key' });
+        return res.status(401).json({ success: false, message: 'Invalid API Key' });
     }
 
-    // 2. Fallback to Session-based authentication for UI
+    // 3. Fallback to Session-based authentication
     if (req.session && req.session.authenticated) {
         return next();
     }

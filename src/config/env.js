@@ -2,6 +2,7 @@
 import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
+import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -16,11 +17,17 @@ if (fs.existsSync(configEnvPath)) {
     dotenv.config({ path: configEnvPath });
 }
 
+// Generate default API key if not provided
+const defaultApiKey = process.env.API_KEY || crypto.randomBytes(32).toString('hex');
+
 // Validate and export environment variables
 const env = {
     // Server
     PORT: parseInt(process.env.PORT, 10) || 3000,
     NODE_ENV: process.env.NODE_ENV || 'development',
+    
+    // API Key (required for all API calls)
+    API_KEY: defaultApiKey,
     
     // Session
     SESSION_SECRET: process.env.SESSION_SECRET || 'zalo-server-secret-key',
@@ -57,6 +64,7 @@ export function logConfig() {
     console.log('--- ENVIRONMENT CONFIGURATION ---');
     console.log(`[ENV] PORT: ${env.PORT}`);
     console.log(`[ENV] NODE_ENV: ${env.NODE_ENV}`);
+    console.log(`[ENV] API_KEY: ${process.env.API_KEY ? '****' + env.API_KEY.slice(-8) : env.API_KEY + ' (auto-generated)'}`);
     console.log(`[ENV] SESSION_SECRET: ${env.SESSION_SECRET ? '****' + env.SESSION_SECRET.slice(-4) : 'NOT SET'}`);
     console.log(`[ENV] DATA_PATH: ${env.DATA_PATH}`);
     console.log(`[ENV] MESSAGE_WEBHOOK_URL: ${env.MESSAGE_WEBHOOK_URL || 'NOT SET'}`);
