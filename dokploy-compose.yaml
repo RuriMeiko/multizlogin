@@ -13,10 +13,10 @@ services:
     ports:
       - "${PORT:-3000}:3000"
     
-    # Sử dụng named volume cho persistent storage
-    # QUAN TRỌNG: Volume này giữ dữ liệu qua các lần deploy
+    # Sử dụng bind mount để đảm bảo data KHÔNG BAO GIỜ bị xóa
+    # Data sẽ được lưu tại /opt/multizlogin-data trên host
     volumes:
-      - multizlogin-data:/app/data
+      - /opt/multizlogin-data:/app/data
     
     environment:
       # Server config
@@ -58,12 +58,6 @@ services:
           cpus: '0.5'
           memory: 512M
 
-# Named volumes for persistent data
-# QUAN TRỌNG: Dữ liệu trong volume này sẽ được giữ lại khi:
-# - Rebuild container
-# - Update image  
-# - Restart service
-# - Redeploy từ Dokploy
-volumes:
-  multizlogin-data:
-    driver: local
+# Không cần định nghĩa volumes vì dùng bind mount
+# Data được lưu trực tiếp tại /opt/multizlogin-data trên host
+# và KHÔNG BỊ XÓA khi redeploy

@@ -16,9 +16,9 @@ RUN npm ci --only=production
 # Copy toàn bộ source code hiện tại vào container
 COPY . .
 
-# Tạo các thư mục dữ liệu cần thiết
-# Lưu ý: Dữ liệu sẽ được persist qua Docker volume
-RUN mkdir -p data/cookies
+# Copy entrypoint script
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 # Đánh dấu thư mục data là volume để persist data
 VOLUME ["/app/data"]
@@ -26,5 +26,6 @@ VOLUME ["/app/data"]
 # Mở cổng 3000
 EXPOSE 3000
 
-# Khởi động server bằng npm start
+# Sử dụng entrypoint để khởi tạo thư mục trước khi chạy app
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["npm", "start"]

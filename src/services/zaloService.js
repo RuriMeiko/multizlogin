@@ -68,16 +68,22 @@ export async function loginZaloAccount(customProxy, cred, trackingId, qrCallback
         let proxies = [];
         
         try {
+            // Đảm bảo thư mục data tồn tại trước khi đọc file
+            if (!fs.existsSync(env.DATA_PATH)) {
+                fs.mkdirSync(env.DATA_PATH, { recursive: true });
+                console.log(`Đã tạo thư mục: ${env.DATA_PATH}`);
+            }
+            
+            if (!fs.existsSync(env.PROXIES_FILE)) {
+                fs.writeFileSync(env.PROXIES_FILE, '[]', 'utf8');
+                console.log(`Đã tạo file proxies.json trống`);
+            }
+            
             const proxiesJson = fs.readFileSync(env.PROXIES_FILE, 'utf8');
             proxies = JSON.parse(proxiesJson);
             console.log(`Đã đọc ${proxies.length} proxy từ file proxies.json`);
         } catch (error) {
             console.error("Không thể đọc hoặc phân tích cú pháp proxies.json:", error);
-            console.log('Đang tạo file proxies.json trống...');
-            if (!fs.existsSync(env.DATA_PATH)) {
-                fs.mkdirSync(env.DATA_PATH, { recursive: true });
-            }
-            fs.writeFileSync(env.PROXIES_FILE, '[]', 'utf8');
             proxies = [];
         }
 
