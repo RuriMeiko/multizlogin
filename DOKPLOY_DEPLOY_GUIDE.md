@@ -7,7 +7,19 @@ Khi deploy trên Dokploy, mỗi lần redeploy tạo container mới và xóa co
 - ❌ Zalo session cookies (`data/cookies/cred_*.json`)  
 - ❌ Proxy configuration (`data/proxies.json`)
 
-## Giải pháp: Persistent Volumes
+### ⚠️ Vấn đề đặc biệt: Mất API Keys
+
+**Nguyên nhân:**
+1. File `users.json` bị recreate khi có lỗi JSON → Thiếu field `apiKey`
+2. Init code chạy trước khi volume mount xong → Overwrite file cũ
+
+**Đã được fix:**
+- ✅ Lazy initialization - chỉ init khi cần
+- ✅ Backup tự động trước khi recreate
+- ✅ Đảm bảo field `apiKey` luôn tồn tại
+- ✅ Script verify và migrate data
+
+## Giải pháp: Persistent Volumes + Data Migration
 
 ### 1. Tạo Persistent Volume trên Dokploy
 
@@ -56,7 +68,25 @@ volumes:
     driver: local
 ```
 
-### 3. Build và Push Docker Image
+### 3. **[QUAN TRỌNG] Verify và Migrate Data**
+
+Trước khi deploy, chạy script để verify data:
+
+```bash
+# Check users.json structure
+./scripts/verify-users.sh
+
+# Hoặc dùng Node.js script
+node scripts/migrate-users.js
+```
+
+Script sẽ:
+- ✅ Check JSON validity
+- ✅ Verify tất cả required fields
+- ✅ Auto-fix thiếu `apiKey` field
+- ✅ Backup trước khi sửa
+
+### 4. Build và Push Docker Image
 
 ```bash
 # Login vào registry của bạn
@@ -69,7 +99,7 @@ docker build -t your-registry/multizlogin:latest .
 docker push your-registry/multizlogin:latest
 ```
 
-### 4. Cấu hình Environment Variables trên Dokploy
+### 5. Cấu hình Environment Variables trên Dokploy
 
 Trong Dokploy dashboard → **Environment Variables**, thêm:
 
@@ -85,7 +115,7 @@ REACTION_WEBHOOK_URL=https://your-n8n.com/webhook/reactions
 WEBHOOK_LOGIN_SUCCESS=https://your-n8n.com/webhook/login-success
 ```
 
-### 5. Deploy
+### 6. Deploy
 
 Click **Deploy** trên Dokploy dashboard.
 
@@ -115,7 +145,74 @@ Nếu file `users.json` và các file cookies vẫn còn → ✅ Volume hoạt �
 
 ## Troubleshooting
 
-### 1. Vẫn mất dữ liệu sau khi redeploy
+### 1. 🔴 API Keys bị mất sau redeploy
+
+**Nguyên nhân:**
+- File `users.json` thiếu field `apiKey`
+- File bị recreate do JSON error
+
+**Kiểm tra:**
+```bash
+# Vào container
+docker exec -it <container> sh
+
+# Check users.json structure
+cat /app/data/cookies/users.json | grep apiKey
+
+# Nếu không có output → Thiếu field apiKey
+```
+
+**Giải pháp:**
+
+**Option 1: Restore từ backup**
+```bash
+# List backups
+docker exec -it <container> ls -la /app/data/cookies/*.backup*
+
+# Restore backup gần nhất
+docker exec -it <container> cp /app/data/cookies/users.json.backup-XXXXX /app/data/cookies/users.json
+```
+
+**Option 2: Fix thủ công**
+```bash
+# Download file
+docker cp <container>:/app/data/cookies/users.json ./users.json
+
+# Edit thêm field apiKey vào mỗi user
+# Ví dụ:
+# {
+#   "username": "admin",
+#   "salt": "...",
+#   "hash": "...",
+#   "role": "admin",
+#   "apiKey": "your-api-key-here"  <- Thêm dòng này
+# }
+
+# Upload lại
+docker cp ./users.json <container>:/app/data/cookies/users.json
+
+# Restart container
+docker restart <container>
+```
+
+**Option 3: Run migration script**
+```bash
+# Copy script vào container
+docker cp scripts/migrate-users.js <container>:/app/
+
+# Run migration
+docker exec -it <container> node /app/migrate-users.js
+
+# Check result
+docker exec -it <container> cat /app/data/cookies/users.json
+```
+
+**Prevention:**
+- ✅ Luôn backup trước khi deploy
+- ✅ Verify file với `./scripts/verify-users.sh`
+- ✅ Đảm bảo volume được mount đúng
+
+### 2. Vẫn mất dữ liệu sau khi redeploy
 
 **Nguyên nhân:** Volume chưa được mount đúng.
 

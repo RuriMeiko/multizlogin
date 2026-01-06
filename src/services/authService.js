@@ -62,6 +62,17 @@ const initUserFile = () => {
         console.log("users.json là JSON hợp lệ");
       } catch (readError) {
         console.error("Lỗi khi đọc/phân tích file users.json:", readError);
+        console.warn("[CRITICAL] File users.json bị lỗi, đang tạo lại - API keys sẽ bị mất!");
+        
+        // Tạo backup trước khi overwrite
+        try {
+          const backupPath = userFilePath + '.backup-' + Date.now();
+          fs.copyFileSync(userFilePath, backupPath);
+          console.log(`Đã backup file lỗi vào: ${backupPath}`);
+        } catch (backupError) {
+          console.error('Không thể backup file lỗi:', backupError);
+        }
+        
         // Nếu file không đúng định dạng JSON, tạo lại
         const defaultPassword = 'admin';
         const salt = crypto.randomBytes(16).toString('hex');
@@ -71,7 +82,8 @@ const initUserFile = () => {
           username: 'admin',
           salt,
           hash,
-          role: 'admin'
+          role: 'admin',
+          apiKey: null  // QUAN TRỌNG: Phải có apiKey field!
         }];
 
         fs.writeFileSync(userFilePath, JSON.stringify(users, null, 2));
@@ -83,11 +95,26 @@ const initUserFile = () => {
   }
 };
 
-// Khởi tạo file người dùng
-initUserFile();
+// Biến để track xem đã init chưa
+let isInitialized = false;
+
+// Hàm đảm bảo init được gọi (lazy init)
+const ensureInit = () => {
+  if (!isInitialized) {
+    console.log("[AuthService] Lazy initializing user file...");
+    initUserFile();
+    isInitialized = true;
+  }
+};
+
+// KHÔNG tự động khởi tạo ngay khi module load
+// Để tránh overwrite file trước khi volume mount xong
+// initUserFile(); // <- XÓA dòng này
 
 // Đọc dữ liệu người dùng từ file
 const getUsers = () => {
+  // Đảm bảo init trước khi đọc
+  ensureInit();
   try {
     // Đảm bảo đọc dữ liệu mới nhất từ file (không sử dụng cache)
     const data = fs.readFileSync(userFilePath, { encoding: 'utf8', flag: 'r' });
