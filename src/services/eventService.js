@@ -65,8 +65,8 @@ export function setupEventListeners(api, loginResolve) {
             // Xác định tin nhắn là group hay cá nhân
             // Tin nhắn group: idTo là group ID (khác với ownId và uidFrom)
             // Tin nhắn cá nhân: idTo là ownId (người nhận) hoặc uidFrom (người gửi)
-            const isGroupMessage = (msg.idTo != ownId && msg.idTo != msg.uidFrom);
-            console.log(msg.idTo, msg.uidFrom, ownId);
+            const isGroupMessage = (msg.data.idTo != ownId && msg.data.idTo != msg.data.uidFrom);
+            console.log(msg.data.idTo, msg.data.uidFrom, ownId);
             
             const msgWithOwnId = { 
                 ...msg, 
