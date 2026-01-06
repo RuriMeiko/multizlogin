@@ -81,45 +81,48 @@ export async function loginZaloAccount(customProxy, cred, trackingId, qrCallback
             proxies = [];
         }
 
-        // Kiểm tra nếu người dùng nhập proxy
+        // Kiểm tra nếu người dùng truyền proxy
         if (customProxy && customProxy.trim() !== "") {
             try {
                 new URL(customProxy);
                 useCustomProxy = true;
-                console.log('Proxy nhập vào hợp lệ:', customProxy);
+                console.log('Sử dụng proxy từ request:', customProxy);
 
+                // Lưu vào proxies.json nếu chưa có
                 if (!proxies.includes(customProxy)) {
                     proxies.push(customProxy);
                     fs.writeFileSync(env.PROXIES_FILE, JSON.stringify(proxies, null, 4), 'utf8');
                     console.log(`Đã thêm proxy mới vào proxies.json: ${customProxy}`);
                 }
+                
+                agent = new HttpsProxyAgent(customProxy);
             } catch (err) {
-                console.log(`Proxy nhập vào không hợp lệ: ${customProxy}. Sẽ sử dụng proxy mặc định.`);
+                console.log(`Proxy không hợp lệ: ${customProxy}. Sẽ thử tự động chọn proxy từ file.`);
+                useCustomProxy = false;
             }
         }
 
-        if (useCustomProxy) {
-            console.log('Sử dụng proxy tùy chỉnh:', customProxy);
-            agent = new HttpsProxyAgent(customProxy);
-        } else {
+        // Nếu không truyền proxy hoặc proxy không hợp lệ → tự động chọn từ proxies.json
+        if (!useCustomProxy) {
             if (proxies.length > 0) {
                 const proxyIndex = getAvailableProxyIndex();
                 if (proxyIndex === -1) {
-                    console.log('Tất cả proxy đều đã đủ tài khoản. Không thể đăng nhập thêm!');
+                    console.log('Tất cả proxy đều đã đủ tài khoản. Đăng nhập không qua proxy.');
+                    agent = null;
                 } else {
                     proxyUsed = getPROXIES()[proxyIndex];
-                    console.log('Sử dụng proxy tự động:', proxyUsed.url);
+                    console.log('Tự động chọn proxy:', proxyUsed.url);
                     agent = new HttpsProxyAgent(proxyUsed.url);
                 }
             } else {
-                console.log('Không có proxy nào có sẵn, sẽ đăng nhập không qua proxy');
+                console.log('Không có proxy nào trong file, đăng nhập trực tiếp');
                 agent = null;
             }
         }
         
         let zalo;
-        if (useCustomProxy || agent) {
-            console.log('Khởi tạo Zalo SDK với proxy agent');
+        if (agent) {
+            console.log('Khởi tạo Zalo SDK với proxy');
             zalo = new Zalo({
                 agent: agent,
                 polyfill: nodefetch,
@@ -222,13 +225,31 @@ export async function loginZaloAccount(customProxy, cred, trackingId, qrCallback
             
             // Save to file
             const cookiesDir = env.COOKIES_DIR;
+            console.log(`[SaveCredentials] Đường dẫn cookies dir: ${cookiesDir}`);
+            console.log(`[SaveCredentials] Absolute path: ${path.resolve(cookiesDir)}`);
+            
             if (!fs.existsSync(cookiesDir)) {
+                console.log(`[SaveCredentials] Tạo thư mục: ${cookiesDir}`);
                 fs.mkdirSync(cookiesDir, { recursive: true });
             }
             
             const credFilePath = path.join(cookiesDir, `cred_${ownId}.json`);
-            fs.writeFileSync(credFilePath, JSON.stringify(credData, null, 4));
-            console.log(`✓ Đã lưu credentials vào file: ${credFilePath}`);
+            console.log(`[SaveCredentials] Đang lưu vào: ${credFilePath}`);
+            
+            try {
+                fs.writeFileSync(credFilePath, JSON.stringify(credData, null, 4));
+                console.log(`✓ Đã lưu credentials thành công`);
+                
+                // Verify file exists
+                if (fs.existsSync(credFilePath)) {
+                    const stats = fs.statSync(credFilePath);
+                    console.log(`✓ File đã tồn tại: ${credFilePath} (${stats.size} bytes)`);
+                } else {
+                    console.error(`✗ File không tồn tại sau khi lưu: ${credFilePath}`);
+                }
+            } catch (saveError) {
+                console.error(`✗ Lỗi khi lưu file:`, saveError);
+            }
 
 
             console.log(`Đã hoàn tất quá trình đăng nhập vào tài khoản ${ownId} qua proxy ${useCustomProxy ? customProxy : (proxyUsed?.url || 'không có proxy')}`);
