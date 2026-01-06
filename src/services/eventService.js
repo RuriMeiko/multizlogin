@@ -61,12 +61,20 @@ export function setupEventListeners(api, loginResolve) {
         
         if (messageWebhookUrl) {
             console.log(`[Webhook] Tìm thấy URL webhook tin nhắn: ${messageWebhookUrl}`);
+            
+            // Xác định tin nhắn là group hay cá nhân
+            // Tin nhắn group: idTo là group ID (khác với ownId và uidFrom)
+            // Tin nhắn cá nhân: idTo là ownId (người nhận) hoặc uidFrom (người gửi)
+            const isGroupMessage = msg.idTo && msg.idTo !== ownId && msg.idTo !== msg.uidFrom;
+            
             const msgWithOwnId = { 
                 ...msg, 
                 _accountId: ownId,
-                _messageType: msg.isSelf ? 'self' : 'user' 
+                _messageType: msg.isSelf ? 'self' : 'user',
+                _isGroup: isGroupMessage,
+                _chatType: isGroupMessage ? 'group' : 'personal'
             };
-            console.log(`[Webhook] Đang gửi dữ liệu đến webhook...`);
+            console.log(`[Webhook] Đang gửi dữ liệu đến webhook... (${isGroupMessage ? 'Group' : 'Personal'})`);
             triggerN8nWebhook(msgWithOwnId, messageWebhookUrl)
                 .then(success => {
                     if (success) {
