@@ -62,11 +62,9 @@ export function setupEventListeners(api, loginResolve) {
         if (messageWebhookUrl) {
             console.log(`[Webhook] Tìm thấy URL webhook tin nhắn: ${messageWebhookUrl}`);
             
-            // Xác định tin nhắn là group hay cá nhân
-            // Tin nhắn group: idTo là group ID (khác với ownId và uidFrom)
-            // Tin nhắn cá nhân: idTo là ownId (người nhận) hoặc uidFrom (người gửi)
-            const isGroupMessage = (msg.data.idTo != ownId && msg.data.idTo != msg.data.uidFrom);
-            console.log(msg.data.idTo, msg.data.uidFrom, ownId);
+            // Xác định tin nhắn là group hay cá nhân dựa trên threadType hoặc type trong data
+            // ThreadType: User = 0, Group = 1
+            const isGroupMessage = msg.type === 1;
             
             const msgWithOwnId = { 
                 ...msg, 
