@@ -55,7 +55,7 @@ export function setupEventListeners(api, loginResolve) {
     api._healthCheckTimer = healthCheckTimer;
     
     // Lắng nghe sự kiện tin nhắn
-    api.listener.on("message", (msg) => {
+    api.listener.on("message", async (msg) => {
         console.log(`[Webhook] Nhận được tin nhắn mới cho tài khoản ${ownId}. Đang xử lý webhook...`);
         const messageWebhookUrl = getWebhookUrl("messageWebhookUrl");
         
@@ -67,12 +67,31 @@ export function setupEventListeners(api, loginResolve) {
             // Tin nhắn cá nhân: idTo là ownId (người nhận) hoặc uidFrom (người gửi)
             const isGroupMessage = msg.idTo && msg.idTo !== ownId && msg.idTo !== msg.uidFrom;
             
+            // Lấy thông tin người gửi
+            let senderInfo = null;
+            try {
+                if (msg.uidFrom && !msg.isSelf) {
+                    const userInfoResult = await api.getUserInfo(msg.uidFrom);
+                    if (userInfoResult && userInfoResult.changed_profiles && userInfoResult.changed_profiles[msg.uidFrom]) {
+                        const profile = userInfoResult.changed_profiles[msg.uidFrom];
+                        senderInfo = {
+                            displayName: profile.displayName || profile.zaloName || null,
+                            zaloName: profile.zaloName || null,
+                            avatar: profile.avatar || null
+                        };
+                    }
+                }
+            } catch (error) {
+                console.warn(`[Webhook] Không thể lấy thông tin người gửi ${msg.uidFrom}:`, error.message);
+            }
+            
             const msgWithOwnId = { 
                 ...msg, 
                 _accountId: ownId,
                 _messageType: msg.isSelf ? 'self' : 'user',
                 _isGroup: isGroupMessage,
-                _chatType: isGroupMessage ? 'group' : 'personal'
+                _chatType: isGroupMessage ? 'group' : 'personal',
+                _senderInfo: senderInfo
             };
             console.log(`[Webhook] Đang gửi dữ liệu đến webhook... (${isGroupMessage ? 'Group' : 'Personal'})`);
             triggerN8nWebhook(msgWithOwnId, messageWebhookUrl)
