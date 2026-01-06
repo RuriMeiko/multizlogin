@@ -1,72 +1,107 @@
 # MultiZlogin
 
-Hệ thống quản lý đa tài khoản Zalo, hỗ trợ đăng nhập và quản lý nhiều tài khoản Zalo cùng lúc, tích hợp proxy và webhook.
+Hệ thống quản lý đa tài khoản Zalo, hỗ trợ đăng nhập và quản lý nhiều tài khoản Zalo cùng lúc, tích hợp proxy và webhook với tính năng auto-reconnection và persistent storage.
 
 ## Tính năng
 
-- Đăng nhập nhiều tài khoản Zalo thông qua mã QR
-- Hỗ trợ đăng nhập qua proxy
-- Quản lý danh sách proxy
-- Cấu hình webhook riêng cho từng tài khoản
-- Giám sát trạng thái kết nối của các tài khoản
-- API để tích hợp với các hệ thống khác
-- Nhận tin nhắn và sự kiện từ Zalo thông qua webhook
+- ✅ Đăng nhập nhiều tài khoản Zalo thông qua mã QR
+- ✅ Hỗ trợ đăng nhập qua proxy với load balancing
+- ✅ Quản lý danh sách proxy tự động
+- ✅ Cấu hình webhook riêng cho từng loại sự kiện
+- ✅ Giám sát trạng thái kết nối của các tài khoản
+- ✅ **Auto-reconnection** khi mất kết nối
+- ✅ **Health check mechanism** để phát hiện connection issues
+- ✅ **Persistent storage** với Docker volumes (không mất data khi restart)
+- ✅ API RESTful để tích hợp với các hệ thống khác
+- ✅ Nhận tin nhắn và sự kiện từ Zalo thông qua webhook real-time
+
+## Cải tiến mới (v2.0)
+
+### 🔄 Auto-Reconnection
+- Tự động phát hiện và reconnect khi connection bị đóng
+- Exponential backoff để tránh spam reconnect
+- Retry logic thông minh với cooldown period
+
+### 🏥 Health Check
+- Kiểm tra connection health mỗi 2 phút
+- Docker health check endpoint: `/health`
+- Tự động trigger reconnection khi phát hiện vấn đề
+
+### 💾 Docker Volumes
+- Lưu trữ cookies và session persistent
+- Giữ lại cấu hình proxy và webhook
+- Không mất data khi restart/rebuild container
 
 ## Cài đặt
 
 ### Yêu cầu hệ thống
 
 - Node.js v16 trở lên
+- Docker & Docker Compose (khuyến nghị)
 - npm hoặc yarn
 
 ### Các bước cài đặt
 
 1. Clone repository:
-   ```
+   ```bash
    git clone https://github.com/yourusername/multizlogin.git
    cd multizlogin
    ```
 
-2. Cài đặt các phụ thuộc:
-   ```
-   npm install
-   ```
-
-3. Tạo file `.env` từ file mẫu:
-   ```
+2. Tạo file `.env` từ file mẫu:
+   ```bash
    cp .env.example .env
    ```
 
-4. Cấu hình các biến môi trường trong file `.env`:
-   ```
+3. Cấu hình các biến môi trường trong file `.env`:
+   ```env
    PORT=3000
-   SESSION_SECRET=your_secret_key
-   API_KEY=your_api_key
-   MESSAGE_WEBHOOK_URL=your_default_message_webhook_url
-   GROUP_EVENT_WEBHOOK_URL=your_default_group_event_webhook_url
-   REACTION_WEBHOOK_URL=your_default_reaction_webhook_url
+   SESSION_SECRET=your_secret_key_change_this
+   MESSAGE_WEBHOOK_URL=https://your-n8n.com/webhook/message
+   GROUP_EVENT_WEBHOOK_URL=https://your-n8n.com/webhook/group-events
+   REACTION_WEBHOOK_URL=https://your-n8n.com/webhook/reactions
+   WEBHOOK_LOGIN_SUCCESS=https://your-n8n.com/webhook/login-success
    ```
 
-5. Khởi động ứng dụng:
+4. Khởi động với Docker (Khuyến nghị):
+   ```bash
+   docker-compose up -d
    ```
+   
+   Hoặc chạy trực tiếp với Node.js:
+   ```bash
+   npm install
    npm start
    ```
 
-### Cài đặt với Docker
+5. Kiểm tra health status:
+   ```bash
+   curl http://localhost:3000/health
+   ```
 
-1. Chuẩn bị môi trường Docker:
-   ```
-   ./scripts/prepare-docker.sh
-   ```
-   Script này sẽ tạo thư mục `zalo_data` và các file cần thiết.
+## Docker Volumes và Persistent Storage
 
-2. Cấu trúc thư mục `zalo_data`:
-   ```
-   zalo_data/
-   ├── cookies/       # Lưu trữ cookie đăng nhập Zalo
-   ├── proxies.json   # Cấu hình danh sách proxy
-   └── .env           # Biến môi trường cho Docker
-   ```
+Hệ thống sử dụng Docker volumes để lưu trữ data persistent:
+
+```yaml
+volumes:
+  - ./data:/app/data              # Cookies và proxies
+  - ./zalo_data:/app/zalo_data    # Webhook config
+```
+
+### Dữ liệu được lưu trữ:
+- **Cookies**: `./data/cookies/cred_<ownId>.json` - Session cookies cho auto-login
+- **Proxies**: `./data/proxies.json` - Danh sách proxy và usage tracking
+- **Webhook URLs**: Cấu hình qua environment variables trong `.env`
+
+### Reset container an toàn (giữ data):
+```bash
+docker-compose restart              # Restart nhanh
+# hoặc
+docker-compose down && docker-compose up -d  # Restart đầy đủ
+```
+
+📖 **Chi tiết**: Xem [DOCKER_VOLUMES_GUIDE.md](DOCKER_VOLUMES_GUIDE.md) để biết thêm về troubleshooting và best practices.
 
 3. Khởi động với Docker:
    ```

@@ -1119,7 +1119,12 @@ export async function loginZaloAccount(customProxy, cred, trackingId) {
 
             console.log('Thiết lập event listeners');
             setupEventListeners(api, loginResolve);
-            api.listener.start();
+            
+            // Thêm listener start với retryOnClose=true để tự động reconnect
+            api.listener.start({ retryOnClose: true });
+            
+            // Thêm flag để track trạng thái listener
+            api.listener.isStarted = true;
 
             // Nếu sử dụng proxy mặc định từ danh sách thì cập nhật usedCount
             if (!useCustomProxy && proxyUsed) {

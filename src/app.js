@@ -116,6 +116,20 @@ app.use((req, res, next) => {
   authMiddleware(req, res, next);
 });
 
+// Health check endpoint (không cần authentication)
+app.get('/health', (req, res) => {
+    const healthStatus = {
+        status: 'ok',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        accounts: {
+            total: zaloAccounts.length,
+            online: zaloAccounts.filter(acc => acc.api && acc.api.listener).length
+        }
+    };
+    res.status(200).json(healthStatus);
+});
+
 // Swagger UI
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
 

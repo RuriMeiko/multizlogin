@@ -8,11 +8,18 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - ./zalo_data:/app/data
+      - ./data:/app/data
     environment:
       - PORT=3000
       - MESSAGE_WEBHOOK_URL=${MESSAGE_WEBHOOK_URL}
       - GROUP_EVENT_WEBHOOK_URL=${GROUP_EVENT_WEBHOOK_URL}
       - REACTION_WEBHOOK_URL=${REACTION_WEBHOOK_URL}
       - SESSION_SECRET=${SESSION_SECRET:-zalo-server-secret-key}
+      - WEBHOOK_LOGIN_SUCCESS=${WEBHOOK_LOGIN_SUCCESS}
     restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
