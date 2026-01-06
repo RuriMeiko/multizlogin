@@ -28,23 +28,38 @@ export async function triggerN8nWebhook(msg, webhookUrl) {
 }
 
 export async function saveImage(url) {
+    const imgPath = path.join(process.cwd(), 'data', `temp_${Date.now()}.png`);
+    
     try {
-        const imgPath = "./temp.png";
-
-        const { data } = await axios.get(url, { responseType: "arraybuffer" });
+        const { data } = await axios.get(url, { 
+            responseType: "arraybuffer",
+            timeout: 30000 // 30 seconds timeout
+        });
         fs.writeFileSync(imgPath, Buffer.from(data, "utf-8"));
-
         return imgPath;
     } catch (error) {
-        console.error(error);
+        console.error('[SaveImage] Lỗi khi lưu ảnh:', error.message);
+        // Xóa file nếu tạo lỗi một phần
+        try {
+            if (fs.existsSync(imgPath)) {
+                fs.unlinkSync(imgPath);
+            }
+        } catch (cleanupError) {
+            console.error('[SaveImage] Không thể xóa temp file:', cleanupError.message);
+        }
         return null;
     }
 }
 
 export function removeImage(imgPath) {
+    if (!imgPath) return;
+    
     try {
-        fs.unlinkSync(imgPath);
+        if (fs.existsSync(imgPath)) {
+            fs.unlinkSync(imgPath);
+            console.log(`[RemoveImage] Đã xóa file: ${imgPath}`);
+        }
     } catch (error) {
-        console.error(error);
+        console.error(`[RemoveImage] Lỗi khi xóa file ${imgPath}:`, error.message);
     }
 }

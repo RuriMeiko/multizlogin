@@ -12,9 +12,24 @@ const RELOGIN_COOLDOWN = 3 * 60 * 1000;
 const MAX_RETRY_ATTEMPTS = 5;
 // Health check interval (mỗi 2 phút)
 const HEALTH_CHECK_INTERVAL = 2 * 60 * 1000;
+// Lock để tránh race condition khi relogin
+const reloginLocks = new Map();
 
 export function setupEventListeners(api, loginResolve) {
     const ownId = api.getOwnId();
+    
+    // Dọn dẹp health check timer cũ trước khi tạo mới (tránh memory leak)
+    if (api._healthCheckTimer) {
+        clearInterval(api._healthCheckTimer);
+        api._healthCheckTimer = null;
+        console.log(`[Cleanup] Đã clear old health check timer cho ${ownId}`);
+    }
+    
+    // Remove tất cả event listeners cũ trước khi đăng ký mới (tránh duplicate listeners)
+    if (api.listener) {
+        api.listener.removeAllListeners();
+        console.log(`[Cleanup] Đã remove all old listeners cho ${ownId}`);
+    }
     
     // Thiết lập health check để đảm bảo connection vẫn hoạt động
     const healthCheckTimer = setInterval(() => {
@@ -32,9 +47,7 @@ export function setupEventListeners(api, loginResolve) {
     }, HEALTH_CHECK_INTERVAL);
     
     // Lưu timer để có thể clear sau này nếu cần
-    if (!api._healthCheckTimer) {
-        api._healthCheckTimer = healthCheckTimer;
-    }
+    api._healthCheckTimer = healthCheckTimer;
     
     // Lắng nghe sự kiện tin nhắn và gửi đến webhook được cấu hình cho tin nhắn
     api.listener.on("message", (msg) => {
@@ -57,6 +70,9 @@ export function setupEventListeners(api, loginResolve) {
                     } else {
                         console.error(`[Webhook] Gửi webhook cho tin nhắn mới thất bại.`);
                     }
+                })
+                .catch(error => {
+                    console.error(`[Webhook] Lỗi khi gửi message webhook:`, error);
                 });
         } else {
             console.warn(`[Webhook] Không tìm thấy URL webhook cho tin nhắn mới của tài khoản ${ownId}. Bỏ qua.`);
@@ -69,7 +85,8 @@ export function setupEventListeners(api, loginResolve) {
         if (groupEventWebhookUrl) {
             // Thêm ownId vào dữ liệu
             const dataWithOwnId = { ...data, _accountId: ownId };
-            triggerN8nWebhook(dataWithOwnId, groupEventWebhookUrl);
+            triggerN8nWebhook(dataWithOwnId, groupEventWebhookUrl)
+                .catch(error => console.error('[Webhook] Lỗi gửi group event webhook:', error));
         }
     });
 
@@ -80,7 +97,8 @@ export function setupEventListeners(api, loginResolve) {
         if (reactionWebhookUrl) {
             // Thêm ownId vào dữ liệu
             const reactionWithOwnId = { ...reaction, _accountId: ownId };
-            triggerN8nWebhook(reactionWithOwnId, reactionWebhookUrl);
+            triggerN8nWebhook(reactionWithOwnId, reactionWebhookUrl)
+                .catch(error => console.error('[Webhook] Lỗi gửi reaction webhook:', error));
         }
     });
 
@@ -115,6 +133,12 @@ export function setupEventListeners(api, loginResolve) {
             api._healthCheckTimer = null;
         }
         
+        // Dọn dẹp retry timeout nếu có
+        if (api._retryTimeout) {
+            clearTimeout(api._retryTimeout);
+            api._retryTimeout = null;
+        }
+        
         // Xử lý đăng nhập lại khi API listener bị đóng
         handleRelogin(api);
     });
@@ -126,16 +150,24 @@ export function setupEventListeners(api, loginResolve) {
 
 // Hàm xử lý đăng nhập lại
 async function handleRelogin(api) {
+    const ownId = api.getOwnId();
+    
+    // Kiểm tra relogin lock để tránh race condition
+    if (reloginLocks.get(ownId)) {
+        console.log(`[Relogin] Tài khoản ${ownId} đang trong quá trình relogin, bỏ qua request mới`);
+        return;
+    }
+    
     try {
         console.log("[Relogin] Đang thử đăng nhập lại...");
-        
-        // Lấy ownId của tài khoản bị ngắt kết nối
-        const ownId = api.getOwnId();
         
         if (!ownId) {
             console.error("[Relogin] Không thể xác định ownId, không thể đăng nhập lại");
             return;
         }
+        
+        // Set lock
+        reloginLocks.set(ownId, true);
         
         // Lấy thông tin relogin attempts
         let attemptInfo = reloginAttempts.get(ownId);
@@ -202,9 +234,20 @@ async function handleRelogin(api) {
         if (attemptInfo && attemptInfo.count < MAX_RETRY_ATTEMPTS) {
             const retryDelay = Math.min(RELOGIN_COOLDOWN * attemptInfo.count, 10 * 60 * 1000); // Max 10 phút
             console.log(`[Relogin] Sẽ thử lại sau ${Math.floor(retryDelay / 1000)} giây...`);
-            setTimeout(() => {
+            
+            // Clear old timeout nếu có để tránh memory leak
+            if (api._retryTimeout) {
+                clearTimeout(api._retryTimeout);
+            }
+            
+            // Lưu timeout ID để có thể clear sau này
+            api._retryTimeout = setTimeout(() => {
+                api._retryTimeout = null;
                 handleRelogin(api);
             }, retryDelay);
         }
+    } finally {
+        // Luôn release lock trong finally block
+        reloginLocks.delete(ownId);
     }
 }

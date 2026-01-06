@@ -169,6 +169,7 @@ export async function sendMessageByAccount(req, res) {
 
 // API gửi hình ảnh với account selection
 export async function sendImageByAccount(req, res) {
+    let imagePath = null;
     try {
         const { imagePath: imageUrl, threadId, type, accountSelection } = req.body;
 
@@ -177,7 +178,7 @@ export async function sendImageByAccount(req, res) {
         }
 
         const account = getAccountFromSelection(accountSelection);
-        const imagePath = await saveImage(imageUrl);
+        imagePath = await saveImage(imageUrl);
 
         if (!imagePath) {
             return res.status(500).json({ success: false, error: 'Không thể lưu hình ảnh' });
@@ -193,8 +194,6 @@ export async function sendImageByAccount(req, res) {
             threadType
         );
 
-        removeImage(imagePath);
-
         res.json({
             success: true,
             data: result,
@@ -205,6 +204,11 @@ export async function sendImageByAccount(req, res) {
         });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
+    } finally {
+        // Đảm bảo cleanup temp file trong mọi trường hợp
+        if (imagePath) {
+            removeImage(imagePath);
+        }
     }
 }
 
