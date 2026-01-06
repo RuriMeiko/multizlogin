@@ -171,6 +171,9 @@ export const addUser = (username, password, role = 'user') => {
 export const validateUser = (username, password) => {
   console.log(`Validating user: ${username}, password length: ${password.length}`);
 
+  // Đảm bảo file được init trước
+  ensureInit();
+
   // Đọc dữ liệu trực tiếp từ file để đảm bảo dữ liệu mới nhất
   let users = [];
   try {
@@ -221,6 +224,9 @@ export const validateUser = (username, password) => {
 export const changePassword = (username, oldPassword, newPassword) => {
   console.log(`Attempting to change password for user: ${username}`);
   console.log(`Old password length: ${oldPassword.length}, New password length: ${newPassword.length}`);
+
+  // Đảm bảo file được init trước
+  ensureInit();
 
   // Đọc dữ liệu trực tiếp từ file để đảm bảo dữ liệu mới nhất
   let users = [];
