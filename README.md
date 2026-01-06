@@ -5,7 +5,8 @@ API để quản lý nhiều tài khoản Zalo, gửi tin nhắn, quản lý nh�
 ## 🚀 Features
 
 - ✅ Đăng nhập nhiều tài khoản Zalo qua QR Code
-- ✅ Lưu credentials an toàn trong PostgreSQL
+- ✅ Lưu credentials an toàn trong file-based storage
+- ✅ Named volumes cho data persistence (Dokploy backup-friendly)
 - ✅ API đầy đủ với Swagger documentation
 - ✅ Hỗ trợ proxy cho mỗi tài khoản
 - ✅ Webhook real-time cho tin nhắn và events
@@ -15,7 +16,6 @@ API để quản lý nhiều tài khoản Zalo, gửi tin nhắn, quản lý nh�
 ## 📋 Requirements
 
 - Node.js 20+
-- PostgreSQL 16+ (tùy chọn, có thể dùng file-based fallback)
 - Docker & Docker Compose (cho production)
 
 ## 🔧 Installation
@@ -44,12 +44,7 @@ nano .env
 API_KEY=your-super-secret-key-here-123456
 ```
 
-4. Khởi động PostgreSQL (nếu có Docker):
-```bash
-docker-compose up -d postgres
-```
-
-5. Chạy server:
+4. Chạy server:
 ```bash
 npm start
 ```
@@ -59,7 +54,7 @@ Server sẽ chạy tại: `http://localhost:3000`
 ### Docker Deployment
 
 1. Cấu hình `.env` file với API_KEY
-2. Khởi động tất cả services:
+2. Khởi động service:
 ```bash
 docker-compose up -d
 ```
@@ -67,6 +62,24 @@ docker-compose up -d
 3. Kiểm tra logs:
 ```bash
 docker-compose logs -f zalo-server
+```
+
+## 💾 Data Storage
+
+Sử dụng **file-based storage** với Docker **named volumes**:
+
+- `zalo_data:/app/data` - Lưu Zalo credentials, users, proxies
+- Dokploy tự động backup named volumes
+- Data persist qua deployments và updates
+- Không cần PostgreSQL setup
+
+### File Structure
+```
+/app/data/
+├── cookies/
+│   ├── cred_<ownId>.json  # Zalo credentials
+│   └── users.json         # Admin users
+└── proxies.json           # Proxy configs
 ```
 
 ## 🔐 Authentication
@@ -157,89 +170,27 @@ Example:
 }
 ```
 
-## 🗄️ Database Schema
-
-### Table: zalo_credentials
-
-Lưu thông tin đăng nhập Zalo:
-
-```sql
-CREATE TABLE zalo_credentials (
-    id SERIAL PRIMARY KEY,
-    own_id VARCHAR(255) UNIQUE NOT NULL,
-    phone_number VARCHAR(50),
-    display_name VARCHAR(255),
-    credentials JSONB NOT NULL,
-    proxy VARCHAR(500),
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW(),
-    last_login_at TIMESTAMP
-);
-```
-
-### Table: proxies
-
-Quản lý proxy servers:
-
-```sql
-CREATE TABLE proxies (
-    id SERIAL PRIMARY KEY,
-    url VARCHAR(500) UNIQUE NOT NULL,
-    max_accounts INTEGER DEFAULT 3,
-    current_accounts INTEGER DEFAULT 0,
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT NOW()
-);
-```
-
-## 🔄 Webhooks
-
-Configure webhooks in `.env` để nhận events real-time:
-
-```env
-MESSAGE_WEBHOOK_URL=https://n8n.example.com/webhook/message
-GROUP_EVENT_WEBHOOK_URL=https://n8n.example.com/webhook/group-events
-REACTION_WEBHOOK_URL=https://n8n.example.com/webhook/reactions
-WEBHOOK_LOGIN_SUCCESS=https://n8n.example.com/webhook/login-success
-```
-
-### Webhook Payload Examples
-
-**Message Webhook:**
-```json
-{
-  "event": "message",
-  "ownId": "1234567890",
-  "data": {
-    "threadId": "0987654321",
-    "message": "Hello",
-    "senderId": "0987654321",
-    "timestamp": 1704567890000
-  }
-}
-```
-
-## 🔧 Environment Variables
+## � Environment Variables
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `PORT` | No | `3000` | Server port |
 | `API_KEY` | **Yes** | - | API authentication key |
 | `SESSION_SECRET` | No | Auto | Session encryption key |
-| `DB_HOST` | No | `postgres` | PostgreSQL host |
-| `DB_PORT` | No | `5432` | PostgreSQL port |
-| `DB_NAME` | No | `multizlogin` | Database name |
-| `DB_USER` | No | `zalouser` | Database user |
-| `DB_PASSWORD` | No | `zalopass123` | Database password |
 | `MESSAGE_WEBHOOK_URL` | No | - | Webhook for messages |
+| `GROUP_EVENT_WEBHOOK_URL` | No | - | Webhook for group events |
+| `REACTION_WEBHOOK_URL` | No | - | Webhook for reactions |
+| `WEBHOOK_LOGIN_SUCCESS` | No | - | Webhook for login success |
 | `ADMIN_DEFAULT_PASSWORD` | No | `admin` | Default admin password |
+| `DATA_PATH` | No | `/app/data` | Data storage path |
 
 ## 🐳 Docker Volumes
 
-Data persistence được đảm bảo qua Docker volumes:
+Data persistence với Docker **named volumes**:
 
-- `postgres_data` - PostgreSQL database
-- `zalo_data` - Backup credentials (file-based)
+- `zalo_data` - Tất cả credentials và configs
+- Dokploy auto-backup named volumes
+- Survive container rebuilds & updates
 
 ## 🔍 Health Check
 

@@ -7,18 +7,8 @@ import path from 'path';
 import env from '../config/env.js';
 import { getPROXIES, getAvailableProxyIndex } from './proxyService.js';
 import { setupEventListeners } from './eventService.js';
-import {
-    saveZaloCredentials,
-    getZaloCredentials,
-    getAllZaloCredentials,
-    deleteZaloCredentials,
-    saveProxy,
-    getAvailableProxy,
-    incrementProxyCount,
-    decrementProxyCount
-} from './dbService.js';
 
-// Danh sách tài khoản Zalo đã đăng nhập (in-memory cache)
+// Danh sách tài khoản Zalo đã đăng nhập
 export const zaloAccounts = [];
 
 // Hàm gửi webhook khi đăng nhập thành công
@@ -230,26 +220,15 @@ export async function loginZaloAccount(customProxy, cred, trackingId, qrCallback
             const { imei, cookie, userAgent } = context;
             const credData = { imei, cookie, userAgent };
             
-            // Save to database
-            try {
-                await saveZaloCredentials(
-                    ownId,
-                    credData,
-                    phoneNumber,
-                    displayName,
-                    useCustomProxy ? customProxy : (proxyUsed && proxyUsed.url)
-                );
-                console.log(`✓ Đã lưu credentials vào database cho ${ownId}`);
-            } catch (dbError) {
-                console.error('Lỗi lưu vào database, fallback sang file:', dbError);
-                // Fallback to file if database fails
-                const cookiesDir = env.COOKIES_DIR;
-                if (!fs.existsSync(cookiesDir)) {
-                    fs.mkdirSync(cookiesDir, { recursive: true });
-                }
-                fs.writeFileSync(`${cookiesDir}/cred_${ownId}.json`, JSON.stringify(credData, null, 4));
-                console.log(`Đã lưu credentials vào file cred_${ownId}.json`);
+            // Save to file
+            const cookiesDir = env.COOKIES_DIR;
+            if (!fs.existsSync(cookiesDir)) {
+                fs.mkdirSync(cookiesDir, { recursive: true });
             }
+            
+            const credFilePath = path.join(cookiesDir, `cred_${ownId}.json`);
+            fs.writeFileSync(credFilePath, JSON.stringify(credData, null, 4));
+            console.log(`✓ Đã lưu credentials vào file: ${credFilePath}`);
 
 
             console.log(`Đã hoàn tất quá trình đăng nhập vào tài khoản ${ownId} qua proxy ${useCustomProxy ? customProxy : (proxyUsed?.url || 'không có proxy')}`);
@@ -309,65 +288,54 @@ export async function logoutZaloAccount(ownId) {
     }
 }
 
-// Khởi tạo đăng nhập từ database
+// Khởi tạo đăng nhập từ cookie files
 export async function initLoginFromCookies() {
-    console.log('🔄 Khởi tạo đăng nhập từ database...');
+    console.log('🔄 Khởi tạo đăng nhập từ cookie files...');
+    
+    const cookiesDir = env.COOKIES_DIR;
+    if (!fs.existsSync(cookiesDir)) {
+        console.log(`Thư mục cookies không tồn tại, đang tạo: ${cookiesDir}`);
+        fs.mkdirSync(cookiesDir, { recursive: true });
+        console.log('✓ Đã tạo thư mục cookies');
+        return;
+    }
     
     try {
-        // Load from database first
-        const dbCredentials = await getAllZaloCredentials();
-        console.log(`Tìm thấy ${dbCredentials.length} credentials trong database`);
+        const cookieFiles = fs.readdirSync(cookiesDir).filter(f => f.startsWith('cred_') && f.endsWith('.json'));
+        console.log(`Tìm thấy ${cookieFiles.length} cookie files`);
         
-        for (const cred of dbCredentials) {
-            try {
-                await loginFromCookieOnly(cred.credentials, cred.ownId);
-                console.log(`✓ Đã đăng nhập lại tài khoản ${cred.ownId} từ database`);
-            } catch (loginError) {
-                console.error(`✗ Không thể đăng nhập tài khoản ${cred.ownId} từ database: ${loginError.message}`);
-                console.log('  → Cookie có thể đã hết hạn. Cần đăng nhập lại qua QR từ UI.');
-            }
-        }
-    } catch (dbError) {
-        console.error('Lỗi khi load từ database, fallback sang file:', dbError);
-        
-        // Fallback to file-based loading
-        const cookiesDir = env.COOKIES_DIR;
-        if (!fs.existsSync(cookiesDir)) {
-            console.log(`Thư mục cookies không tồn tại: ${cookiesDir}`);
-            fs.mkdirSync(cookiesDir, { recursive: true });
+        if (cookieFiles.length === 0) {
+            console.log('ℹ Chưa có credentials nào được lưu. Đăng nhập qua API: POST /api/zalo/login');
             return;
         }
         
-        try {
-            const cookieFiles = fs.readdirSync(cookiesDir).filter(f => f.startsWith('cred_') && f.endsWith('.json'));
-            console.log(`Tìm thấy ${cookieFiles.length} cookie files`);
+        for (const file of cookieFiles) {
+            const ownId = file.substring(5, file.length - 5);
             
-            if (zaloAccounts.length < cookieFiles.length) {
-                console.log('Số lượng tài khoản Zalo nhỏ hơn số lượng cookie files. Đang đăng nhập lại từ cookie...');
-
-                for (const file of cookieFiles) {
-                    const ownId = file.substring(5, file.length - 5);
+            // Skip if already logged in
+            if (zaloAccounts.some(acc => acc.ownId === ownId)) {
+                console.log(`⏭ Tài khoản ${ownId} đã đăng nhập, bỏ qua`);
+                continue;
+            }
+            
+            try {
+                const cookiePath = `${cookiesDir}/${file}`;
+                if (fs.existsSync(cookiePath)) {
+                    const cookie = JSON.parse(fs.readFileSync(cookiePath, "utf-8"));
                     try {
-                        const cookiePath = `${cookiesDir}/${file}`;
-                        if (fs.existsSync(cookiePath)) {
-                            const cookie = JSON.parse(fs.readFileSync(cookiePath, "utf-8"));
-                            try {
-                                // Sử dụng loginFromCookieOnly để không tạo QR khi fail
-                                await loginFromCookieOnly(cookie, ownId);
-                                console.log(`✓ Đã đăng nhập lại tài khoản ${ownId} từ cookie.`);
-                            } catch (loginError) {
-                                console.error(`✗ Không thể đăng nhập tài khoản ${ownId} từ cookie:`, loginError.message);
-                                console.log(`  → Cookie có thể đã hết hạn. Cần đăng nhập lại qua QR từ UI.`);
-                            }
-                        }
-                    } catch (error) {
-                        console.error(`Lỗi khi đọc/xử lý cookie cho tài khoản ${ownId}:`, error);
+                        await loginFromCookieOnly(cookie, ownId);
+                        console.log(`✓ Đã đăng nhập lại tài khoản ${ownId} từ file`);
+                    } catch (loginError) {
+                        console.error(`✗ Không thể đăng nhập tài khoản ${ownId}: ${loginError.message}`);
+                        console.log(`  → Cookie có thể đã hết hạn. Cần đăng nhập lại qua API.`);
                     }
                 }
+            } catch (error) {
+                console.error(`Lỗi khi đọc/xử lý cookie cho tài khoản ${ownId}:`, error.message);
             }
-        } catch (dirError) {
-            console.error(`Lỗi khi đọc thư mục cookies:`, dirError);
         }
+    } catch (dirError) {
+        console.error(`Lỗi khi đọc thư mục cookies:`, dirError);
     }
 }
 
