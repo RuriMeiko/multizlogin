@@ -8,7 +8,8 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - zalo_data:/app/data
+      # Bind mount - data lưu trực tiếp trên host, KHÔNG BAO GIỜ bị xóa khi redeploy
+      - /opt/multizlogin-data:/app/data
     environment:
       - PORT=3000
       - NODE_ENV=production
@@ -29,6 +30,4 @@ services:
       retries: 3
       start_period: 40s
 
-volumes:
-  zalo_data:
-    driver: local
+# Không cần định nghĩa volumes vì dùng bind mount
