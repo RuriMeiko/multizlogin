@@ -1,10 +1,55 @@
-node_modules
-npm-debug.log
-data
-zalo_data
-.git
+# .dockerignore
+# Không copy các folder này vào Docker image
+# Chúng sẽ được mount từ volumes
+
+# QUAN TRỌNG: Data directories (will be mounted as volumes)
+# Đảm bảo data KHÔNG được copy vào image để tránh overwrite khi redeploy
+data/
+zalo_data/
+
+# Node modules (will be installed in container)
+node_modules/
+
+# Git
+.git/
 .gitignore
+
+# Environment files (use Dokploy environment variables instead)
 .env
-*.md
-pre_publish_backup
+.env.*
+!.env.example
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Backup files
+pre_publish_backup/
+*.bak
+
+# Scripts không cần thiết trong production
+scripts/clean-for-publish.sh
+scripts/restore-after-publish.sh
+
+# Documentation (optional, keep if you want them in image)
+README.md
+SYSTEM_CHECK_REPORT.md
+DOCKER_VOLUMES_GUIDE.md
+DOKPLOY_DEPLOY_GUIDE.md
+LICENSE
+
  

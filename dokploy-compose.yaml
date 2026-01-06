@@ -1,0 +1,50 @@
+version: "3.8"
+services:
+  zalo-server:
+    # Image từ registry (replace with your registry)
+    image: ${DOCKER_IMAGE:-ghcr.io/chickenai/multizlogin:latest}
+    
+    ports:
+      - "${PORT:-3000}:3000"
+    
+    # Sử dụng named volume cho persistent storage
+    volumes:
+      - multizlogin-data:/app/data
+    
+    environment:
+      - PORT=${PORT:-3000}
+      - MESSAGE_WEBHOOK_URL=${MESSAGE_WEBHOOK_URL}
+      - GROUP_EVENT_WEBHOOK_URL=${GROUP_EVENT_WEBHOOK_URL}
+      - REACTION_WEBHOOK_URL=${REACTION_WEBHOOK_URL}
+      - SESSION_SECRET=${SESSION_SECRET:-zalo-server-secret-key-change-this}
+      - WEBHOOK_LOGIN_SUCCESS=${WEBHOOK_LOGIN_SUCCESS}
+    
+    restart: always
+    
+    healthcheck:
+      # Sử dụng wget thay vì curl (có sẵn trong alpine)
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    # Resource limits (optional, adjust based on your needs)
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+# Named volumes for persistent data
+volumes:
+  multizlogin-data:
+    driver: local
+    # Optional: specify driver options for better persistence
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_PATH:-./data}

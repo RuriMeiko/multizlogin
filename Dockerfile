@@ -17,6 +17,9 @@ COPY . .
 # Tạo các thư mục dữ liệu cần thiết
 RUN mkdir -p data/cookies data/zalo_data
 
+# Đánh dấu thư mục data là volume để persist data
+VOLUME ["/app/data"]
+
 # Mở cổng 3000
 EXPOSE 3000
 

@@ -96,13 +96,33 @@ Hệ thống sử dụng Docker volumes để lưu trữ data persistent:
 ```yaml
 volumes:
   - ./data:/app/data              # Cookies và proxies
-  - ./zalo_data:/app/zalo_data    # Webhook config
 ```
 
 ### Dữ liệu được lưu trữ:
 - **Cookies**: `./data/cookies/cred_<ownId>.json` - Session cookies cho auto-login
+- **User Accounts & API Keys**: `./data/cookies/users.json` - Thông tin đăng nhập và API keys
 - **Proxies**: `./data/proxies.json` - Danh sách proxy và usage tracking
 - **Webhook URLs**: Cấu hình qua environment variables trong `.env`
+
+### ⚠️ QUAN TRỌNG: Deploy trên Dokploy/Cloud
+
+Khi deploy trên các platform như Dokploy, Heroku, Railway, v.v., **BẮT BUỘC phải cấu hình volumes** để tránh mất dữ liệu khi redeploy.
+
+**Vấn đề:** Mỗi lần redeploy, container mới được tạo và data trong container cũ bị mất.
+
+**Giải pháp:** 
+
+1. **Quick Setup:**
+   ```bash
+   ./scripts/dokploy-setup.sh
+   ```
+
+2. **Sử dụng file cấu hình cho Dokploy:**
+   - File: [dokploy-compose.yaml](dokploy-compose.yaml)
+   - Sử dụng **named volumes** thay vì bind mounts
+   - Tạo volume `multizlogin-data` mount vào `/app/data`
+
+📖 **Chi tiết:** Xem [DOKPLOY_DEPLOY_GUIDE.md](DOKPLOY_DEPLOY_GUIDE.md) để biết hướng dẫn đầy đủ.
 
 ### Reset container an toàn (giữ data):
 ```bash
@@ -110,8 +130,6 @@ docker-compose restart              # Restart nhanh
 # hoặc
 docker-compose down && docker-compose up -d  # Restart đầy đủ
 ```
-
-📖 **Chi tiết**: Xem [DOCKER_VOLUMES_GUIDE.md](DOCKER_VOLUMES_GUIDE.md) để biết thêm về troubleshooting và best practices.
 
 3. Khởi động với Docker:
    ```
