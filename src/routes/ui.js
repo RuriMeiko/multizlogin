@@ -109,10 +109,38 @@ router.post('/zalo-login', async (req, res) => {
         const { proxy, id } = req.body;
         console.log(`Đang tạo mã QR với proxy: ${proxy || 'không có proxy'}, trackingId: ${id || 'không có'}`);
 
-        const qrCodeImage = await loginZaloAccount(proxy, null, id);
-        console.log('Đã tạo mã QR thành công, độ dài:', qrCodeImage ? qrCodeImage.length : 0);
+        let qrSent = false;
+        
+        // Callback để gửi QR về client ngay khi có
+        const qrCallback = (qrCodeImage) => {
+            if (!qrSent) {
+                qrSent = true;
+                console.log('Đã tạo mã QR thành công, độ dài:', qrCodeImage ? qrCodeImage.length : 0);
+                res.json({ success: true, qrCodeImage });
+            }
+        };
 
-        res.json({ success: true, qrCodeImage });
+        // Bắt đầu quá trình login (không await vì cần gửi QR về trước)
+        loginZaloAccount(proxy, null, id, qrCallback)
+            .then(accountInfo => {
+                console.log('Đăng nhập hoàn tất:', accountInfo);
+            })
+            .catch(error => {
+                console.error('Lỗi trong quá trình đăng nhập:', error);
+                // Nếu chưa gửi response thì gửi lỗi
+                if (!qrSent) {
+                    qrSent = true;
+                    res.status(500).json({ success: false, error: error.message });
+                }
+            });
+            
+        // Timeout nếu sau 30s chưa có QR
+        setTimeout(() => {
+            if (!qrSent) {
+                qrSent = true;
+                res.status(500).json({ success: false, error: 'Timeout tạo mã QR' });
+            }
+        }, 30000);
     } catch (error) {
         console.error('Lỗi khi tạo mã QR:', error);
         res.status(500).json({ success: false, error: error.message });

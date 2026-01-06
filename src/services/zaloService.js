@@ -53,7 +53,7 @@ async function sendLoginSuccessWebhook(profile, trackingId, customProxy, proxyUs
 }
 
 // Hàm đăng nhập tài khoản Zalo
-export async function loginZaloAccount(customProxy, cred, trackingId) {
+export async function loginZaloAccount(customProxy, cred, trackingId, qrCallback) {
     let loginResolve;
     return new Promise(async (resolve, reject) => {
         console.log('Bắt đầu quá trình đăng nhập Zalo...');
@@ -146,7 +146,10 @@ export async function loginZaloAccount(customProxy, cred, trackingId) {
                         if (qrData?.data?.image) {
                             const qrCodeImage = `data:image/png;base64,${qrData.data.image}`;
                             console.log('Đã tạo mã QR, độ dài:', qrCodeImage.length);
-                            resolve(qrCodeImage);
+                            // Gọi callback để gửi QR về UI, KHÔNG resolve Promise
+                            if (qrCallback) {
+                                qrCallback(qrCodeImage);
+                            }
                         }
                     });
                 }
@@ -157,7 +160,10 @@ export async function loginZaloAccount(customProxy, cred, trackingId) {
                     if (qrData?.data?.image) {
                         const qrCodeImage = `data:image/png;base64,${qrData.data.image}`;
                         console.log('Đã tạo mã QR, độ dài:', qrCodeImage.length);
-                        resolve(qrCodeImage);
+                        // Gọi callback để gửi QR về UI, KHÔNG resolve Promise
+                        if (qrCallback) {
+                            qrCallback(qrCodeImage);
+                        }
                     }
                 });
             }
@@ -232,6 +238,9 @@ export async function loginZaloAccount(customProxy, cred, trackingId) {
             });
 
             console.log(`Đã hoàn tất quá trình đăng nhập vào tài khoản ${ownId} qua proxy ${useCustomProxy ? customProxy : (proxyUsed?.url || 'không có proxy')}`);
+            
+            // Resolve Promise với thông tin account
+            resolve({ ownId, displayName, phoneNumber });
         } catch (error) {
             console.error('Lỗi trong quá trình đăng nhập Zalo:', error);
             reject(error);
@@ -249,31 +258,74 @@ export async function initLoginFromCookies() {
     }
     
     try {
-        const cookieFiles = fs.readdirSync(cookiesDir);
+        const cookieFiles = fs.readdirSync(cookiesDir).filter(f => f.startsWith('cred_') && f.endsWith('.json'));
+        console.log(`Tìm thấy ${cookieFiles.length} cookie files`);
+        
         if (zaloAccounts.length < cookieFiles.length) {
             console.log('Số lượng tài khoản Zalo nhỏ hơn số lượng cookie files. Đang đăng nhập lại từ cookie...');
 
             for (const file of cookieFiles) {
-                if (file.startsWith('cred_') && file.endsWith('.json')) {
-                    const ownId = file.substring(5, file.length - 5);
-                    try {
-                        const cookiePath = `${cookiesDir}/${file}`;
-                        if (fs.existsSync(cookiePath)) {
-                            const cookie = JSON.parse(fs.readFileSync(cookiePath, "utf-8"));
-                            try {
-                                await loginZaloAccount(null, cookie);
-                                console.log(`Đã đăng nhập lại tài khoản ${ownId} từ cookie.`);
-                            } catch (loginError) {
-                                console.error(`Lỗi khi đăng nhập lại tài khoản ${ownId} từ cookie:`, loginError);
-                            }
+                const ownId = file.substring(5, file.length - 5);
+                try {
+                    const cookiePath = `${cookiesDir}/${file}`;
+                    if (fs.existsSync(cookiePath)) {
+                        const cookie = JSON.parse(fs.readFileSync(cookiePath, "utf-8"));
+                        try {
+                            // Sử dụng loginFromCookieOnly để không tạo QR khi fail
+                            await loginFromCookieOnly(cookie, ownId);
+                            console.log(`✓ Đã đăng nhập lại tài khoản ${ownId} từ cookie.`);
+                        } catch (loginError) {
+                            console.error(`✗ Không thể đăng nhập tài khoản ${ownId} từ cookie:`, loginError.message);
+                            console.log(`  → Cookie có thể đã hết hạn. Cần đăng nhập lại qua QR từ UI.`);
                         }
-                    } catch (error) {
-                        console.error(`Lỗi khi đọc/xử lý cookie cho tài khoản ${ownId}:`, error);
                     }
+                } catch (error) {
+                    console.error(`Lỗi khi đọc/xử lý cookie cho tài khoản ${ownId}:`, error);
                 }
             }
         }
     } catch (dirError) {
         console.error(`Lỗi khi đọc thư mục cookies:`, dirError);
     }
+}
+
+// Đăng nhập chỉ bằng cookie (không fallback sang QR)
+async function loginFromCookieOnly(cred, expectedOwnId) {
+    return new Promise(async (resolve, reject) => {
+        try {
+            const zalo = new Zalo({ selfListen: true });
+            
+            const api = await zalo.login(cred);
+            console.log(`Đăng nhập bằng cookie thành công cho ${expectedOwnId}`);
+            
+            // Setup event listeners
+            let loginResolve = () => {};
+            setupEventListeners(api, loginResolve);
+            
+            api.listener.start({ retryOnClose: true });
+            api.listener.isStarted = true;
+            
+            // Lấy thông tin tài khoản
+            const accountInfo = await api.fetchAccountInfo();
+            if (!accountInfo?.profile) {
+                throw new Error("Không tìm thấy thông tin profile");
+            }
+            
+            const { profile } = accountInfo;
+            const ownId = profile.userId;
+            const phoneNumber = profile.phoneNumber;
+            
+            // Thêm vào danh sách accounts
+            const existingIndex = zaloAccounts.findIndex(acc => acc.ownId === ownId);
+            if (existingIndex !== -1) {
+                zaloAccounts[existingIndex] = { api, ownId, proxy: null, phoneNumber };
+            } else {
+                zaloAccounts.push({ api, ownId, proxy: null, phoneNumber });
+            }
+            
+            resolve({ ownId, displayName: profile.displayName, phoneNumber });
+        } catch (error) {
+            reject(error);
+        }
+    });
 }
