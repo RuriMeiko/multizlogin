@@ -38,14 +38,13 @@ import {
 } from '../api/zalo/zalo.js';
 import { 
     validateUser, 
-    adminMiddleware, 
     addUser, 
     getAllUsers, 
     changePassword,
-    apiAccessMiddleware,
     generateApiKeyForUser,
     getApiKeyForUser
 } from '../services/authService.js';
+import { adminMiddleware, apiAccessMiddleware } from '../middlewares/authMiddleware.js';
 import { getWebhookUrl } from '../services/webhookService.js';
 
 const router = express.Router();

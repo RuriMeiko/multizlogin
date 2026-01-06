@@ -1,122 +1,89 @@
-// app.js
+// app.js - Main Express application
 import express from 'express';
 import session from 'express-session';
 import cookieParser from 'cookie-parser';
-import { authMiddleware, isPublicRoute } from './services/authService.js';
-import routes from './routes/index.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import dotenv from 'dotenv';
-import { zaloAccounts, loginZaloAccount } from './api/zalo/zalo.js';
 import swaggerUi from 'swagger-ui-express';
+
+// Config
+import env, { logConfig } from './config/env.js';
+import { SESSION_MAX_AGE } from './config/constants.js';
 import { specs } from './config/swagger.js';
 
-// Dành cho ES Module: xác định __dirname
+// Services
+import { authMiddleware, isPublicRoute } from './middlewares/authMiddleware.js';
+import { zaloAccounts, initLoginFromCookies } from './services/zaloService.js';
+
+// Routes
+import routes from './routes/index.js';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Load environment variables
-dotenv.config(); // Load from root .env if exists
-
-// Also try loading from src/config/.env for backward compatibility
-const configEnvPath = path.join(__dirname, 'config', '.env');
-if (fs.existsSync(configEnvPath)) {
-    dotenv.config({ path: configEnvPath });
-    console.log("Loaded environment variables from src/config/.env");
-}
-
-// DEBUG: In log chi tiết các biến môi trường đã load
-const envVars = [
-    'PORT',
-    'MESSAGE_WEBHOOK_URL',
-    'GROUP_EVENT_WEBHOOK_URL',
-    'REACTION_WEBHOOK_URL',
-    'WEBHOOK_LOGIN_SUCCESS',
-    'SESSION_SECRET'
-];
-
-console.log('--- KIỂM TRA BIẾN MÔI TRƯỜNG ---');
-envVars.forEach(varName => {
-    const value = process.env[varName];
-    if (value) {
-        if (varName.includes('SECRET') || varName.includes('KEY') || varName.includes('PASSWORD')) {
-            const masked = value.length > 4 ? `***${value.slice(-4)}` : '****';
-            console.log(`[ENV] ${varName}: ${masked} (Đã load)`);
-        } else {
-            console.log(`[ENV] ${varName}: ${value}`);
-        }
-    } else {
-        console.log(`[ENV] ${varName}: CHƯA CÓ (Sẽ dùng mặc định hoặc bỏ qua)`);
-    }
-});
-console.log('--------------------------------');
+// Log configuration
+logConfig();
 
 const app = express();
 
-// Cấu hình EJS
+// View engine
 app.set('view engine', 'ejs');
 const viewsPath = path.join(__dirname, 'views');
 console.log('Views path:', viewsPath);
 app.set('views', viewsPath);
 
-// Thiết lập middleware
+// Middlewares
 app.use(express.json());
-app.use(express.urlencoded({ extended: true })); // Dùng để parse dữ liệu form
+app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// Thiết lập middleware phục vụ file tĩnh
+// Static files
 app.use(express.static(path.join(__dirname, 'public')));
 console.log('Static files path:', path.join(__dirname, 'public'));
 
-// Định nghĩa SESSION_SECRET từ biến môi trường hoặc mặc định
-const sessionSecret = process.env.SESSION_SECRET || 'zalo-server-secret-key';
-console.log("Using session secret:", sessionSecret ? "Configured properly" : "MISSING SESSION SECRET");
+// Session configuration
+console.log("Using session secret:", env.SESSION_SECRET ? "Configured properly" : "MISSING SESSION SECRET");
 
-// Thiết lập session với cấu hình rõ ràng hơn
 app.use(session({
-  secret: sessionSecret,
-  resave: true, // Thay đổi thành true để đảm bảo session được lưu lại sau mỗi request
-  saveUninitialized: true, // Thay đổi thành true để đảm bảo session được lưu ngay cả khi chưa có dữ liệu
-  name: 'zalo-server.sid', // Tên cookie cụ thể
-  cookie: {
-    secure: false, // false để hoạt động với HTTP
-    httpOnly: true, // Chỉ truy cập được qua HTTP, không qua JS
-    maxAge: 24 * 60 * 60 * 1000, // 24 giờ
-    path: '/',
-    sameSite: 'lax' // Thêm cấu hình sameSite để tránh vấn đề với cross-site
-  },
-  rolling: true // Session được làm mới mỗi request
+    secret: env.SESSION_SECRET,
+    resave: true,
+    saveUninitialized: true,
+    name: 'zalo-server.sid',
+    cookie: {
+        secure: false,
+        httpOnly: true,
+        maxAge: SESSION_MAX_AGE,
+        path: '/',
+        sameSite: 'lax'
+    },
+    rolling: true
 }));
 
-// Log để debug session
+// Request logging
 app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
-  console.log('Session exists:', !!req.session);
-  next();
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+    console.log('Session exists:', !!req.session);
+    next();
 });
 
-// Middleware xác thực cho tất cả các route trừ những route công khai
+// Authentication middleware
 app.use((req, res, next) => {
-  // Bỏ qua xác thực cho các route công khai
-  if (isPublicRoute(req.path)) {
-    console.log(`Skipping auth for public route: ${req.path}`);
-    return next();
-  }
+    if (isPublicRoute(req.path)) {
+        console.log(`Skipping auth for public route: ${req.path}`);
+        return next();
+    }
 
-  // Các route API (bắt đầu bằng /api/) sẽ tự xử lý authentication
-  // với apiAccessMiddleware trong từng route, nên skip global auth
-  if (req.path.startsWith('/api/')) {
-    console.log(`Skipping global auth for API route: ${req.path} (will be handled by route-specific middleware)`);
-    return next();
-  }
+    if (req.path.startsWith('/api/')) {
+        console.log(`Skipping global auth for API route: ${req.path} (will be handled by route-specific middleware)`);
+        return next();
+    }
 
-  // Áp dụng middleware xác thực cho các route UI khác
-  console.log(`Applying auth middleware for protected UI route: ${req.path}`);
-  authMiddleware(req, res, next);
+    console.log(`Applying auth middleware for protected UI route: ${req.path}`);
+    authMiddleware(req, res, next);
 });
 
-// Health check endpoint (không cần authentication)
+// Health check endpoint
 app.get('/health', (req, res) => {
     const healthStatus = {
         status: 'ok',
@@ -133,50 +100,12 @@ app.get('/health', (req, res) => {
 // Swagger UI
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
 
-// Thiết lập route
+// Routes
 app.use('/', routes);
 
-// Login từ cookie đã lưu
-const cookiesDir = './data/cookies';
-if (fs.existsSync(cookiesDir)) {
-    try {
-        const cookieFiles = fs.readdirSync(cookiesDir);
-        if (zaloAccounts.length < cookieFiles.length) {
-            console.log('Số lượng tài khoản Zalo nhỏ hơn số lượng cookie files. Đang đăng nhập lại từ cookie...');
-
-            // Sử dụng IIFE để tránh top-level await
-            (async function() {
-                for (const file of cookieFiles) {
-                    if (file.startsWith('cred_') && file.endsWith('.json')) {
-                        const ownId = file.substring(5, file.length - 5, file.length);
-                        try {
-                            const cookiePath = `${cookiesDir}/${file}`;
-                            if (fs.existsSync(cookiePath)) {
-                                const cookie = JSON.parse(fs.readFileSync(cookiePath, "utf-8"));
-                                try {
-                                    await loginZaloAccount(null, cookie);
-                                    console.log(`Đã đăng nhập lại tài khoản ${ownId} từ cookie.`);
-                                } catch (loginError) {
-                                    console.error(`Lỗi khi đăng nhập lại tài khoản ${ownId} từ cookie:`, loginError);
-                                }
-                            } else {
-                                console.log(`Không tìm thấy file cookie: ${cookiePath}`);
-                            }
-                        } catch (error) {
-                            console.error(`Lỗi khi đọc/xử lý cookie cho tài khoản ${ownId}:`, error);
-                        }
-                    }
-                }
-            })().catch(err => {
-                console.error('Lỗi khi xử lý đăng nhập từ cookie:', err);
-            });
-        }
-    } catch (dirError) {
-        console.error(`Lỗi khi đọc thư mục cookies:`, dirError);
-    }
-} else {
-    console.log(`Thư mục cookies không tồn tại: ${cookiesDir}`);
-    fs.mkdirSync(cookiesDir, { recursive: true });
-}
+// Initialize login from saved cookies
+initLoginFromCookies().catch(err => {
+    console.error('Lỗi khi xử lý đăng nhập từ cookie:', err);
+});
 
 export default app;

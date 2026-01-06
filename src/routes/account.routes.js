@@ -1,6 +1,6 @@
 // routes/account.routes.js - Zalo account management routes
 import express from 'express';
-import { apiAccessMiddleware } from '../services/authService.js';
+import { apiAccessMiddleware } from '../middlewares/authMiddleware.js';
 import {
     getLoggedAccounts,
     getAccountDetails,

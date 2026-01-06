@@ -6,9 +6,9 @@ import {
     addUser,
     getAllUsers,
     generateApiKeyForUser,
-    getApiKeyForUser,
-    adminMiddleware 
+    getApiKeyForUser
 } from '../services/authService.js';
+import { adminMiddleware } from '../middlewares/authMiddleware.js';
 
 const router = express.Router();
 

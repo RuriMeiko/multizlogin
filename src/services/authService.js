@@ -1,23 +1,27 @@
-// auth.js - Quản lý xác thực người dùng
+// authService.js - User authentication service
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import crypto from 'crypto';
+import env from '../config/env.js';
+import { HASH_ITERATIONS, HASH_KEY_LENGTH, HASH_DIGEST, PUBLIC_ROUTES } from '../config/constants.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Đường dẫn đến file lưu thông tin đăng nhập (từ config)
+const getUserFilePath = () => env.USERS_FILE;
+console.log("Path to users.json:", getUserFilePath());
 
-// Đường dẫn đến file lưu thông tin đăng nhập
-const userFilePath = path.join(process.cwd(), 'data', 'cookies', 'users.json');
-console.log("Path to users.json:", userFilePath); // Log để debug
+// Hàm tạo hash password
+const hashPassword = (password, salt) => {
+    return crypto.pbkdf2Sync(password, salt, HASH_ITERATIONS, HASH_KEY_LENGTH, HASH_DIGEST).toString('hex');
+};
 
 // Tạo file users.json nếu chưa tồn tại
 const initUserFile = () => {
   try {
+    const userFilePath = getUserFilePath();
     console.log("Khởi tạo file người dùng...");
 
     // Kiểm tra và tạo thư mục cookies nếu chưa tồn tại
-    const cookiesDir = path.join(process.cwd(), 'data', 'cookies');
+    const cookiesDir = path.dirname(userFilePath);
     if (!fs.existsSync(cookiesDir)) {
       console.log("Thư mục cookies không tồn tại, đang tạo...");
       fs.mkdirSync(cookiesDir, { recursive: true });
@@ -33,16 +37,16 @@ const initUserFile = () => {
     if (!fs.existsSync(userFilePath)) {
       console.log("File users.json không tồn tại, đang tạo...");
 
-      // Tạo mật khẩu mặc định 'admin' cho người dùng 'admin'
-      const defaultPassword = 'admin';
+      // Tạo mật khẩu mặc định từ env
+      const defaultPassword = env.ADMIN_DEFAULT_PASSWORD;
       const salt = crypto.randomBytes(16).toString('hex');
-      const hash = crypto.pbkdf2Sync(defaultPassword, salt, 1000, 64, 'sha512').toString('hex');
+      const hash = hashPassword(defaultPassword, salt);
 
       const users = [{
         username: 'admin',
         salt,
         hash,
-        role: 'admin', // Thêm quyền admin
+        role: 'admin',
         apiKey: null
       }];
 
@@ -51,7 +55,7 @@ const initUserFile = () => {
       console.log("Dữ liệu JSON sẽ được ghi:", jsonData);
 
       fs.writeFileSync(userFilePath, jsonData);
-      console.log('Đã tạo file users.json với tài khoản mặc định: admin/admin');
+      console.log(`Đã tạo file users.json với tài khoản mặc định: admin/${defaultPassword}`);
     } else {
       console.log("File users.json đã tồn tại");
       // Kiểm tra nội dung file
@@ -74,20 +78,20 @@ const initUserFile = () => {
         }
         
         // Nếu file không đúng định dạng JSON, tạo lại
-        const defaultPassword = 'admin';
+        const defaultPassword = env.ADMIN_DEFAULT_PASSWORD;
         const salt = crypto.randomBytes(16).toString('hex');
-        const hash = crypto.pbkdf2Sync(defaultPassword, salt, 1000, 64, 'sha512').toString('hex');
+        const hash = hashPassword(defaultPassword, salt);
 
         const users = [{
           username: 'admin',
           salt,
           hash,
           role: 'admin',
-          apiKey: null  // QUAN TRỌNG: Phải có apiKey field!
+          apiKey: null
         }];
 
         fs.writeFileSync(userFilePath, JSON.stringify(users, null, 2));
-        console.log('Đã tạo lại file users.json với tài khoản mặc định: admin/admin');
+        console.log(`Đã tạo lại file users.json với tài khoản mặc định: admin/${defaultPassword}`);
       }
     }
   } catch (error) {
@@ -107,39 +111,39 @@ const ensureInit = () => {
   }
 };
 
-// KHÔNG tự động khởi tạo ngay khi module load
-// Để tránh overwrite file trước khi volume mount xong
-// initUserFile(); // <- XÓA dòng này
-
 // Đọc dữ liệu người dùng từ file
 const getUsers = () => {
-  // Đảm bảo init trước khi đọc
   ensureInit();
   try {
-    // Đảm bảo đọc dữ liệu mới nhất từ file (không sử dụng cache)
+    const userFilePath = getUserFilePath();
     const data = fs.readFileSync(userFilePath, { encoding: 'utf8', flag: 'r' });
     console.log(`Read users.json file, size: ${data.length} bytes`);
 
     try {
       const users = JSON.parse(data);
       console.log(`Parsed ${users.length} users from file`);
-
-      // Log thông tin về mỗi người dùng (chỉ hiển thị thông tin cơ bản)
-      users.forEach((user, index) => {
-        console.log(`User ${index + 1}: ${user.username}, role: ${user.role}, ` +
-                    `salt: ${user.salt ? user.salt.substring(0, 5) + '...' : 'missing'}, ` +
-                    `hash: ${user.hash ? user.hash.substring(0, 5) + '...' : 'missing'}`);
-      });
-
       return users;
     } catch (parseError) {
       console.error('Lỗi khi phân tích JSON từ file users.json:', parseError);
-      console.log('Nội dung file gây lỗi:', data);
       return [];
     }
   } catch (error) {
     console.error('Lỗi khi đọc file users.json:', error);
     return [];
+  }
+};
+
+// Lưu users vào file
+const saveUsers = (users) => {
+  try {
+    const userFilePath = getUserFilePath();
+    const tempFilePath = userFilePath + '.tmp';
+    fs.writeFileSync(tempFilePath, JSON.stringify(users, null, 2), { encoding: 'utf8', flag: 'w' });
+    fs.renameSync(tempFilePath, userFilePath);
+    return true;
+  } catch (error) {
+    console.error('Error saving users file:', error);
+    return false;
   }
 };
 
@@ -153,7 +157,7 @@ export const addUser = (username, password, role = 'user') => {
   }
 
   const salt = crypto.randomBytes(16).toString('hex');
-  const hash = crypto.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
+  const hash = hashPassword(password, salt);
 
   users.push({
     username,
@@ -163,13 +167,12 @@ export const addUser = (username, password, role = 'user') => {
     apiKey: null
   });
 
-  fs.writeFileSync(userFilePath, JSON.stringify(users, null, 2));
-  return true;
+  return saveUsers(users);
 };
 
 // Xác thực người dùng và trả về thông tin user
 export const validateUser = (username, password) => {
-  console.log(`Validating user: ${username}, password length: ${password.length}`);
+  console.log(`Validating user: ${username}`);
 
   // Đảm bảo file được init trước
   ensureInit();
@@ -177,6 +180,7 @@ export const validateUser = (username, password) => {
   // Đọc dữ liệu trực tiếp từ file để đảm bảo dữ liệu mới nhất
   let users = [];
   try {
+    const userFilePath = getUserFilePath();
     const data = fs.readFileSync(userFilePath, { encoding: 'utf8', flag: 'r' });
     users = JSON.parse(data);
     console.log(`Read ${users.length} users directly from file`);
@@ -186,27 +190,13 @@ export const validateUser = (username, password) => {
   }
 
   const user = users.find(user => user.username === username);
-  console.log(`User found: ${user ? 'YES' : 'NO'}`);
 
   if (!user) {
     console.log(`User ${username} not found in database`);
     return null;
   }
 
-  console.log(`Found user: ${user.username}, role: ${user.role}`);
-  console.log(`User's salt: ${user.salt.substring(0, 10)}...`);
-  console.log(`User's hash: ${user.hash.substring(0, 10)}...`);
-
-  console.log(`Password: ${password}`);
-  console.log(`Salt: ${user.salt}`);
-
-  const hash = crypto.pbkdf2Sync(password, user.salt, 1000, 64, 'sha512').toString('hex');
-  console.log(`Generated hash from provided password: ${hash.substring(0, 10)}...`);
-  console.log(`User's hash from database: ${user.hash.substring(0, 10)}...`);
-  console.log(`Full generated hash: ${hash}`);
-  console.log(`Full user's hash: ${user.hash}`);
-  console.log(`Hash comparison: ${user.hash === hash ? 'MATCH' : 'NO MATCH'}`);
-  console.log(`Hash length comparison: Generated=${hash.length}, Stored=${user.hash.length}`);
+  const hash = hashPassword(password, user.salt);
 
   if (user.hash === hash) {
     console.log('Authentication successful');
@@ -223,24 +213,12 @@ export const validateUser = (username, password) => {
 // Thay đổi mật khẩu
 export const changePassword = (username, oldPassword, newPassword) => {
   console.log(`Attempting to change password for user: ${username}`);
-  console.log(`Old password length: ${oldPassword.length}, New password length: ${newPassword.length}`);
 
   // Đảm bảo file được init trước
   ensureInit();
 
-  // Đọc dữ liệu trực tiếp từ file để đảm bảo dữ liệu mới nhất
-  let users = [];
-  try {
-    const data = fs.readFileSync(userFilePath, { encoding: 'utf8', flag: 'r' });
-    users = JSON.parse(data);
-    console.log(`Read ${users.length} users directly from file for password change`);
-  } catch (error) {
-    console.error('Error reading users file directly for password change:', error);
-    return false;
-  }
-
+  const users = getUsers();
   const userIndex = users.findIndex(user => user.username === username);
-  console.log(`User index in array: ${userIndex}`);
 
   if (userIndex === -1) {
     console.log(`User ${username} not found in database`);
@@ -248,138 +226,27 @@ export const changePassword = (username, oldPassword, newPassword) => {
   }
 
   const user = users[userIndex];
-  console.log(`Found user: ${user.username}, role: ${user.role}`);
-  console.log(`User's current salt: ${user.salt.substring(0, 10)}...`);
-  console.log(`User's current hash: ${user.hash.substring(0, 10)}...`);
-
-  const hash = crypto.pbkdf2Sync(oldPassword, user.salt, 1000, 64, 'sha512').toString('hex');
-  console.log(`Generated hash from old password: ${hash.substring(0, 10)}...`);
-  console.log(`Hash comparison: ${user.hash === hash ? 'MATCH' : 'NO MATCH'}`);
+  const hash = hashPassword(oldPassword, user.salt);
 
   if (user.hash !== hash) {
     console.log('Old password verification failed');
-    return false; // Mật khẩu cũ không chính xác
+    return false;
   }
 
   // Cập nhật mật khẩu mới
   const salt = crypto.randomBytes(16).toString('hex');
-  console.log(`Generated new salt: ${salt.substring(0, 10)}...`);
+  const newHash = hashPassword(newPassword, salt);
 
-  const newHash = crypto.pbkdf2Sync(newPassword, salt, 1000, 64, 'sha512').toString('hex');
-  console.log(`Generated new hash: ${newHash.substring(0, 10)}...`);
-  console.log(`Full new hash: ${newHash}`);
-  console.log(`New hash length: ${newHash.length}`);
-
-  // Lưu trực tiếp vào biến users
   users[userIndex].salt = salt;
   users[userIndex].hash = newHash;
 
-  // In ra để kiểm tra
-  console.log(`Updated user object: salt=${users[userIndex].salt.substring(0, 10)}..., hash=${users[userIndex].hash.substring(0, 10)}...`);
-
-  try {
-    // Tạo đường dẫn tạm thời để ghi file
-    const tempFilePath = path.join(process.cwd(), 'data', 'cookies', 'users.json.tmp');
-    console.log(`Using temporary file path: ${tempFilePath}`);
-
-    const jsonData = JSON.stringify(users, null, 2);
-    console.log(`Writing to temporary file: ${tempFilePath}`);
-    console.log(`JSON data to write (first 100 chars): ${jsonData.substring(0, 100)}...`);
-
-    // Ghi vào file tạm thời trước
-    fs.writeFileSync(tempFilePath, jsonData, { encoding: 'utf8', flag: 'w' });
-    console.log('Temporary file written successfully');
-
-    // Kiểm tra file tạm thời đã được ghi đúng chưa
-    const tempFileContent = fs.readFileSync(tempFilePath, 'utf8');
-    console.log(`Temporary file content (first 100 chars): ${tempFileContent.substring(0, 100)}...`);
-
-    // Di chuyển file tạm thời thành file chính thức
-    fs.renameSync(tempFilePath, userFilePath);
-    console.log(`Renamed temporary file to: ${userFilePath}`);
-
-    // Verify the file was written correctly
-    const verifyUsers = getUsers();
-    const verifyUser = verifyUsers.find(u => u.username === username);
-
-    if (!verifyUser) {
-      console.error('Verification failed - user not found after password change');
-      return false;
-    }
-
-    console.log(`Verification - New salt: ${verifyUser.salt.substring(0, 10)}...`);
-    console.log(`Verification - New hash: ${verifyUser.hash.substring(0, 10)}...`);
-    console.log(`Verification - Salt matches: ${verifyUser.salt === salt ? 'YES' : 'NO'}`);
-    console.log(`Verification - Hash matches: ${verifyUser.hash === newHash ? 'YES' : 'NO'}`);
-
-    if (verifyUser.salt !== salt || verifyUser.hash !== newHash) {
-      console.error('Verification failed - salt or hash mismatch after password change');
-      return false;
-    }
-
-    console.log('Password change successful and verified');
+  if (saveUsers(users)) {
+    console.log('Password change successful');
     return true;
-  } catch (error) {
-    console.error('Error writing password change to file:', error);
-    return false;
-  }
-};
-
-// Middleware xác thực cho các route
-export const authMiddleware = (req, res, next) => {
-  // Kiểm tra nếu đã đăng nhập (thông qua session)
-  if (req.session && req.session.authenticated) {
-    return next();
   }
 
-  // Chuyển hướng về trang đăng nhập
-  res.redirect('/admin-login');
-};
-
-// Middleware kiểm tra quyền admin
-export const adminMiddleware = (req, res, next) => {
-  // 1. Check API Key first
-  const apiKey = req.headers['x-api-key'];
-  if (apiKey) {
-    const user = getUserByApiKey(apiKey);
-    if (user && user.role === 'admin') {
-      req.user = user;
-      return next();
-    }
-    // API key was provided but user is not admin
-    return res.status(403).json({ success: false, message: 'Admin access required' });
-  }
-
-  // 2. Fallback to Session
-  if (req.session && req.session.authenticated && req.session.role === 'admin') {
-    return next();
-  }
-
-  res.status(403).json({ success: false, message: 'Không có quyền truy cập. Chỉ admin mới có thể thực hiện chức năng này.' });
-};
-
-// Middleware xác thực API key hoặc Session
-export const apiAccessMiddleware = (req, res, next) => {
-  const apiKey = req.headers['x-api-key'];
-
-  // 1. Check for API Key
-  if (apiKey) {
-    const user = getUserByApiKey(apiKey);
-    if (user) {
-      req.user = user; // Attach user for logging or other purposes
-      return next();
-    }
-    // Key was provided but it's invalid
-    return res.status(403).json({ success: false, message: 'Invalid API Key' });
-  }
-
-  // 2. Fallback to Session-based authentication for UI
-  if (req.session && req.session.authenticated) {
-    return next();
-  }
-
-  // 3. If neither is valid, deny access
-  return res.status(401).json({ success: false, message: 'Authentication required. Provide an API Key or log in.' });
+  console.error('Error saving password change');
+  return false;
 };
 
 // Lấy toàn bộ danh sách người dùng (chỉ admin mới có quyền)
@@ -410,8 +277,10 @@ export const generateApiKeyForUser = (username) => {
     const newApiKey = crypto.randomBytes(32).toString('hex');
     users[userIndex].apiKey = newApiKey;
 
-    fs.writeFileSync(userFilePath, JSON.stringify(users, null, 2));
-    return newApiKey;
+    if (saveUsers(users)) {
+        return newApiKey;
+    }
+    return null;
 };
 
 // Lấy thông tin người dùng bằng API key
@@ -421,81 +290,4 @@ export const getUserByApiKey = (apiKey) => {
     }
     const users = getUsers();
     return users.find(u => u.apiKey === apiKey);
-};
-
-// Danh sách các route công khai (không cần xác thực)
-export const publicRoutes = [
-  '/', // Trang chủ hiển thị nút đăng nhập
-  '/admin-login', // Trang đăng nhập
-  '/session-test', // Trang kiểm tra session
-  '/zalo-login', // Trang và API đăng nhập Zalo (hỗ trợ API key)
-  '/api-docs', // Swagger API documentation
-  '/api/login', // API đăng nhập
-  '/api/simple-login', // API đăng nhập đơn giản
-  '/api/test-login', // API đăng nhập test
-  '/api/logout', // API đăng xuất
-  '/api/check-auth', // API kiểm tra trạng thái xác thực
-  '/api/session-test', // API kiểm tra session
-  '/api/test-json', // API test JSON
-  '/api/account-webhook/', // API webhook có tham số
-  '/api/debug-users-file', // API debug file users.json
-  '/api/reset-admin-password', // API reset mật khẩu admin
-  '/reset-password', // Trang reset mật khẩu admin
-  '/favicon.ico', // Favicon
-  '/ws' // WebSocket
-];
-
-// Kiểm tra xem route có phải là public hay không
-export const isPublicRoute = (path) => {
-  console.log('Checking if route is public:', path);
-
-  // Kiểm tra /api-docs và tất cả sub-paths (swagger assets)
-  if (path.startsWith('/api-docs')) {
-    console.log('Is api-docs or swagger asset:', true);
-    return true;
-  }
-
-  // Kiểm tra các route API công khai
-  if (path.startsWith('/api/')) {
-    // Xử lý các route có tham số động
-    if (path.startsWith('/api/account-webhook/')) {
-      console.log('Is account webhook API with parameters:', true);
-      return true;
-    }
-
-    // Kiểm tra các route cụ thể trong danh sách publicRoutes
-    for (const route of publicRoutes) {
-      if (route.startsWith('/api/') && (
-        path === route || // Trùng khớp chính xác
-        (route.endsWith('/') && path.startsWith(route)) // Route kết thúc bằng / và path bắt đầu bằng route
-      )) {
-        console.log('Is public API route:', true);
-        return true;
-      }
-    }
-
-    console.log('Is public API route:', false);
-    return false;
-  }
-
-  // Kiểm tra các route UI công khai
-  for (const route of publicRoutes) {
-    // Bỏ qua các route API
-    if (route.startsWith('/api/')) continue;
-
-    // Kiểm tra exact match
-    if (path === route) {
-      console.log('Is public UI route (exact match):', true);
-      return true;
-    }
-
-    // Kiểm tra prefix match cho routes như /route/*
-    if (route.endsWith('*') && path.startsWith(route.slice(0, -1))) {
-      console.log('Is public UI route (prefix match):', true);
-      return true;
-    }
-  }
-
-  console.log('Is public route:', false);
-  return false;
 };

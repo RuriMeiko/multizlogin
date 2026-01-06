@@ -1,17 +1,12 @@
 import { GroupEventType } from "zca-js";
 import { getWebhookUrl, triggerN8nWebhook } from './utils/helpers.js';
 import fs from 'fs';
-import { loginZaloAccount, zaloAccounts } from './api/zalo/zalo.js';
+import { loginZaloAccount, zaloAccounts } from './services/zaloService.js';
 import { broadcastMessage } from './server.js';
+import { RELOGIN_COOLDOWN, MAX_RETRY_ATTEMPTS, HEALTH_CHECK_INTERVAL } from './config/constants.js';
 
 // Biến để theo dõi thời gian relogin cho từng tài khoản
 export const reloginAttempts = new Map();
-// Thời gian tối thiểu giữa các lần thử relogin (3 phút)
-const RELOGIN_COOLDOWN = 3 * 60 * 1000;
-// Số lần retry tối đa
-const MAX_RETRY_ATTEMPTS = 5;
-// Health check interval (mỗi 2 phút)
-const HEALTH_CHECK_INTERVAL = 2 * 60 * 1000;
 // Lock để tránh race condition khi relogin
 const reloginLocks = new Map();
 

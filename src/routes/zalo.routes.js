@@ -1,6 +1,6 @@
 // routes/zalo.routes.js - Legacy Zalo API routes (ownId-based)
 import express from 'express';
-import { apiAccessMiddleware } from '../services/authService.js';
+import { apiAccessMiddleware } from '../middlewares/authMiddleware.js';
 import {
     findUser,
     getUserInfo,
