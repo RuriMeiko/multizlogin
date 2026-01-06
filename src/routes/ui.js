@@ -2,9 +2,9 @@ import express from 'express';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { zaloAccounts, loginZaloAccount } from '../api/zalo/zalo.js';
+import { zaloAccounts, loginZaloAccount } from '../services/zaloService.js';
 import { proxyService } from '../services/proxyService.js';
-import dotenv from 'dotenv';
+import env from '../config/env.js';
 
 const router = express.Router();
 

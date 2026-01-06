@@ -1,23 +1,20 @@
-// proxyService.js
+// proxyService.js - Proxy management service
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const proxiesFilePath = path.join(process.cwd(), 'data', 'proxies.json');
-
-const MAX_ACCOUNTS_PER_PROXY = 3;
+import env from '../config/env.js';
 
 class ProxyService {
     constructor() {
         this.RAW_PROXIES = [];
-        this.init();
+        this.PROXIES = [];
+        this.MAX_ACCOUNTS_PER_PROXY = env.MAX_ACCOUNTS_PER_PROXY;
     }
 
     init() {
-        // Đảm bảo thư mục data tồn tại
+        const proxiesFilePath = env.PROXIES_FILE;
         const dataDir = path.dirname(proxiesFilePath);
+        
+        // Đảm bảo thư mục data tồn tại
         if (!fs.existsSync(dataDir)) {
             try {
                 fs.mkdirSync(dataDir, { recursive: true });
@@ -38,22 +35,27 @@ class ProxyService {
             }
         } catch (err) {
             console.error('Error initializing proxies.json:', err.message);
-            // Fallback to empty array if file is corrupted or unreadable
             this.RAW_PROXIES = [];
         }
         this.PROXIES = this.RAW_PROXIES.map(p => ({ url: p, usedCount: 0, accounts: [] }));
     }
 
     getAvailableProxyIndex() {
+        // Lazy init
+        if (this.PROXIES.length === 0 && this.RAW_PROXIES.length === 0) {
+            this.init();
+        }
+        
         for (let i = 0; i < this.PROXIES.length; i++) {
-            if (this.PROXIES[i].usedCount < MAX_ACCOUNTS_PER_PROXY) {
+            if (this.PROXIES[i].usedCount < this.MAX_ACCOUNTS_PER_PROXY) {
                 return i;
             }
         }
-        return -1; // Không còn proxy trống
+        return -1;
     }
 
     addProxy(proxyUrl) {
+        const proxiesFilePath = env.PROXIES_FILE;
         const newProxy = { url: proxyUrl, usedCount: 0, accounts: [] };
         this.PROXIES.push(newProxy);
         this.RAW_PROXIES.push(proxyUrl);
@@ -62,6 +64,7 @@ class ProxyService {
     }
 
     removeProxy(proxyUrl) {
+        const proxiesFilePath = env.PROXIES_FILE;
         const index = this.PROXIES.findIndex(p => p.url === proxyUrl);
         if (index === -1) {
             throw new Error('Không tìm thấy proxy');
@@ -76,6 +79,10 @@ class ProxyService {
     }
 
     getPROXIES() {
+        // Lazy init
+        if (this.PROXIES.length === 0 && this.RAW_PROXIES.length === 0) {
+            this.init();
+        }
         return this.PROXIES;
     }
 }
