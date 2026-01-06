@@ -624,41 +624,90 @@ router.post('/sendImagesToGroup', apiAccessMiddleware, sendImagesToGroupByAccoun
  *           schema:
  *             type: object
  *             required:
+ *               - accountSelection
  *               - action
+ *               - data
  *             properties:
  *               accountSelection:
  *                 type: string
- *                 enum: [first, last, random, specific]
- *                 default: first
- *               accountId:
- *                 type: string
+ *                 description: Account ID hoặc chọn account (first/last/random)
+ *                 example: "1234567890"
  *               action:
  *                 type: string
  *                 enum: [sendMessage, sendTyping, sendSticker, findUser, getUserInfo, getGroupInfo, addReaction, undo]
  *                 description: Loại action cần thực hiện
- *               threadId:
- *                 type: string
- *               message:
- *                 type: string
- *               phoneNumber:
- *                 type: string
- *               userId:
- *                 type: string
- *               groupId:
- *                 type: string
- *               stickerId:
- *                 type: string
- *               reaction:
- *                 type: string
- *               msgId:
- *                 type: string
+ *                 example: "sendTyping"
+ *               data:
+ *                 type: object
+ *                 description: Dữ liệu cho action
+ *                 example: 
+ *                   threadId: "1234567890"
+ *                   type: "user"
+ *           examples:
+ *             sendTyping:
+ *               summary: Gửi typing indicator
+ *               value:
+ *                 accountSelection: "1234567890"
+ *                 action: "sendTyping"
+ *                 data:
+ *                   threadId: "0987654321"
+ *                   type: "user"
+ *             sendMessage:
+ *               summary: Gửi tin nhắn
+ *               value:
+ *                 accountSelection: "1234567890"
+ *                 action: "sendMessage"
+ *                 data:
+ *                   threadId: "0987654321"
+ *                   message: "Hello from API"
+ *             sendSticker:
+ *               summary: Gửi sticker
+ *               value:
+ *                 accountSelection: "1234567890"
+ *                 action: "sendSticker"
+ *                 data:
+ *                   threadId: "0987654321"
+ *                   stickerId: "12345"
+ *             addReaction:
+ *               summary: Thêm reaction
+ *               value:
+ *                 accountSelection: "1234567890"
+ *                 action: "addReaction"
+ *                 data:
+ *                   msgId: "msg123"
+ *                   reaction: "😍"
+ *             findUser:
+ *               summary: Tìm user
+ *               value:
+ *                 accountSelection: "1234567890"
+ *                 action: "findUser"
+ *                 data:
+ *                   phoneNumber: "0123456789"
+ *             getUserInfo:
+ *               summary: Lấy thông tin user
+ *               value:
+ *                 accountSelection: "1234567890"
+ *                 action: "getUserInfo"
+ *                 data:
+ *                   userId: "0987654321"
  *     responses:
  *       200:
- *         description: Action đã thực hiện
+ *         description: Action đã thực hiện thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
  *       400:
- *         description: Action không hợp lệ
+ *         description: Thiếu tham số hoặc action không hợp lệ
  *       401:
- *         description: Unauthorized
+ *         description: Unauthorized - API Key không hợp lệ
+ *       404:
+ *         description: Không tìm thấy account
  */
 router.post('/action', apiAccessMiddleware, handleAccountAction);
 
