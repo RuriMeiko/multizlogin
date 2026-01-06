@@ -17,17 +17,21 @@ if (fs.existsSync(configEnvPath)) {
     dotenv.config({ path: configEnvPath });
 }
 
-// Generate default API key if not provided
-const defaultApiKey = process.env.API_KEY || crypto.randomBytes(32).toString('hex');
-
 // Validate and export environment variables
 const env = {
     // Server
     PORT: parseInt(process.env.PORT, 10) || 3000,
     NODE_ENV: process.env.NODE_ENV || 'development',
     
-    // API Key (required for all API calls)
-    API_KEY: defaultApiKey,
+    // API Key (required - must be set in .env)
+    API_KEY:  process.env.API_KEY || crypto.randomBytes(32).toString('hex'),
+    
+    // Database
+    DB_HOST: process.env.DB_HOST || 'localhost',
+    DB_PORT: parseInt(process.env.DB_PORT, 10) || 5432,
+    DB_NAME: process.env.DB_NAME || 'multizlogin',
+    DB_USER: process.env.DB_USER || 'zalouser',
+    DB_PASSWORD: process.env.DB_PASSWORD || 'zalopass123',
     
     // Session
     SESSION_SECRET: process.env.SESSION_SECRET || 'zalo-server-secret-key',
@@ -64,8 +68,9 @@ export function logConfig() {
     console.log('--- ENVIRONMENT CONFIGURATION ---');
     console.log(`[ENV] PORT: ${env.PORT}`);
     console.log(`[ENV] NODE_ENV: ${env.NODE_ENV}`);
-    console.log(`[ENV] API_KEY: ${process.env.API_KEY ? '****' + env.API_KEY.slice(-8) : env.API_KEY + ' (auto-generated)'}`);
-    console.log(`[ENV] SESSION_SECRET: ${env.SESSION_SECRET ? '****' + env.SESSION_SECRET.slice(-4) : 'NOT SET'}`);
+    console.log(`[ENV] API_KEY: ****${env.API_KEY.slice(-8)}`);
+    console.log(`[ENV] SESSION_SECRET: ****${env.SESSION_SECRET.slice(-4)}`);
+    console.log(`[ENV] DATABASE: ${env.DB_HOST}:${env.DB_PORT}/${env.DB_NAME}`);
     console.log(`[ENV] DATA_PATH: ${env.DATA_PATH}`);
     console.log(`[ENV] MESSAGE_WEBHOOK_URL: ${env.MESSAGE_WEBHOOK_URL || 'NOT SET'}`);
     console.log(`[ENV] GROUP_EVENT_WEBHOOK_URL: ${env.GROUP_EVENT_WEBHOOK_URL || 'NOT SET'}`);

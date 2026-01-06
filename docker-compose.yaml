@@ -1,5 +1,24 @@
 version: "3.8"
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: multizlogin-postgres
+    environment:
+      POSTGRES_DB: ${DB_NAME:-multizlogin}
+      POSTGRES_USER: ${DB_USER:-zalouser}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-zalopass123}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-zalouser} -d ${DB_NAME:-multizlogin}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   zalo-server:
     build:
       context: .
@@ -8,13 +27,12 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      # Mount data directory for persistent storage
-      # This ensures Zalo credentials, users, and proxies are preserved across deploys
       - zalo_data:/app/data
     environment:
       - PORT=3000
       - NODE_ENV=production
       - DATA_PATH=/app/data
+      - API_KEY=${API_KEY}
       - MESSAGE_WEBHOOK_URL=${MESSAGE_WEBHOOK_URL}
       - GROUP_EVENT_WEBHOOK_URL=${GROUP_EVENT_WEBHOOK_URL}
       - REACTION_WEBHOOK_URL=${REACTION_WEBHOOK_URL}
@@ -22,6 +40,14 @@ services:
       - WEBHOOK_LOGIN_SUCCESS=${WEBHOOK_LOGIN_SUCCESS}
       - ADMIN_DEFAULT_PASSWORD=${ADMIN_DEFAULT_PASSWORD:-admin}
       - MAX_ACCOUNTS_PER_PROXY=${MAX_ACCOUNTS_PER_PROXY:-3}
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME:-multizlogin}
+      - DB_USER=${DB_USER:-zalouser}
+      - DB_PASSWORD=${DB_PASSWORD:-zalopass123}
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: always
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
@@ -30,8 +56,8 @@ services:
       retries: 3
       start_period: 40s
 
-# Named volume for data persistence
-# This volume will survive container rebuilds and updates
 volumes:
   zalo_data:
+    driver: local
+  postgres_data:
     driver: local
