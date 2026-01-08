@@ -5,6 +5,12 @@ import { saveImage, removeImage } from '../utils/helpers.js';
 import { getAccountFromSelection } from './accountController.js';
 import { cacheBotMessage } from '../services/redisService.js';
 
+// Helper function để extract msgId từ Zalo API response
+// Response structure: { message: { msgId: "xxx" }, attachment: [] }
+function extractMsgId(result) {
+    return result?.message?.msgId || result?.msgId || result?.data?.msgId;
+}
+
 // API gửi tin nhắn
 export async function sendMessage(req, res) {
     try {
@@ -23,8 +29,8 @@ export async function sendMessage(req, res) {
         
         // Cache tin nhắn bot (mặc định bot=true, có thể override từ payload)
         const isBot = bot !== undefined ? bot : true;
-        if (isBot && result && result.data && result.data.msgId) {
-            await cacheBotMessage(result.data.msgId, {
+        if (isBot && extractMsgId(result)) {
+            await cacheBotMessage(extractMsgId(result), {
                 ownId,
                 threadId,
                 message,
@@ -66,8 +72,8 @@ export async function sendImageToUser(req, res) {
 
         // Cache tin nhắn bot
         const isBot = bot !== undefined ? bot : true;
-        if (isBot && result && result.data && result.data.msgId) {
-            await cacheBotMessage(result.data.msgId, {
+        if (isBot && extractMsgId(result)) {
+            await cacheBotMessage(extractMsgId(result), {
                 ownId,
                 threadId,
                 type: 'image',
@@ -115,8 +121,8 @@ export async function sendImagesToUser(req, res) {
 
         // Cache tin nhắn bot
         const isBot = bot !== undefined ? bot : true;
-        if (isBot && result && result.data && result.data.msgId) {
-            await cacheBotMessage(result.data.msgId, {
+        if (isBot && extractMsgId(result)) {
+            await cacheBotMessage(extractMsgId(result), {
                 ownId,
                 threadId,
                 type: 'images',
@@ -160,8 +166,8 @@ export async function sendImageToGroup(req, res) {
 
         // Cache tin nhắn bot
         const isBot = bot !== undefined ? bot : true;
-        if (isBot && result && result.data && result.data.msgId) {
-            await cacheBotMessage(result.data.msgId, {
+        if (isBot && extractMsgId(result)) {
+            await cacheBotMessage(extractMsgId(result), {
                 ownId,
                 threadId,
                 type: 'image',
@@ -209,8 +215,8 @@ export async function sendImagesToGroup(req, res) {
 
         // Cache tin nhắn bot
         const isBot = bot !== undefined ? bot : true;
-        if (isBot && result && result.data && result.data.msgId) {
-            await cacheBotMessage(result.data.msgId, {
+        if (isBot && extractMsgId(result)) {
+            await cacheBotMessage(extractMsgId(result), {
                 ownId,
                 threadId,
                 type: 'images',
@@ -252,8 +258,8 @@ export async function sendImageToUserByAccount(req, res) {
 
         // Cache tin nhắn bot
         const isBot = bot !== undefined ? bot : true;
-        if (isBot && result && result.data && result.data.msgId) {
-            await cacheBotMessage(result.data.msgId, {
+        if (isBot && extractMsgId(result)) {
+            await cacheBotMessage(extractMsgId(result), {
                 ownId: account.ownId,
                 threadId,
                 type: 'image',
@@ -306,8 +312,8 @@ export async function sendImagesToUserByAccount(req, res) {
 
         // Cache tin nhắn bot
         const isBot = bot !== undefined ? bot : true;
-        if (isBot && result && result.data && result.data.msgId) {
-            await cacheBotMessage(result.data.msgId, {
+        if (isBot && extractMsgId(result)) {
+            await cacheBotMessage(extractMsgId(result), {
                 ownId: account.ownId,
                 threadId,
                 type: 'images',
@@ -356,8 +362,8 @@ export async function sendImageToGroupByAccount(req, res) {
 
         // Cache tin nhắn bot
         const isBot = bot !== undefined ? bot : true;
-        if (isBot && result && result.data && result.data.msgId) {
-            await cacheBotMessage(result.data.msgId, {
+        if (isBot && extractMsgId(result)) {
+            await cacheBotMessage(extractMsgId(result), {
                 ownId: account.ownId,
                 threadId,
                 type: 'image',
@@ -410,8 +416,8 @@ export async function sendImagesToGroupByAccount(req, res) {
 
         // Cache tin nhắn bot
         const isBot = bot !== undefined ? bot : true;
-        if (isBot && result && result.data && result.data.msgId) {
-            await cacheBotMessage(result.data.msgId, {
+        if (isBot && extractMsgId(result)) {
+            await cacheBotMessage(extractMsgId(result), {
                 ownId: account.ownId,
                 threadId,
                 type: 'images',

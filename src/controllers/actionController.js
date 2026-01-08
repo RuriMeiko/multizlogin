@@ -31,18 +31,16 @@ export async function handleAccountAction(req, res) {
                 
                 console.log(`[ActionController] SendMessage FULL result:`, JSON.stringify(result, null, 2));
                 console.log(`[ActionController] Result keys:`, Object.keys(result || {}));
-                console.log(`[ActionController] Result.data:`, result?.data);
-                console.log(`[ActionController] Result.data keys:`, Object.keys(result?.data || {}));
                 console.log(`[ActionController] Checking msgId locations:`);
+                console.log(`  - result.message.msgId:`, result?.message?.msgId);
                 console.log(`  - result.msgId:`, result?.msgId);
-                console.log(`  - result.data.msgId:`, result?.data?.msgId);
-                console.log(`  - result.data.message?.msgId:`, result?.data?.message?.msgId);
+                console.log(`  - result.data?.msgId:`, result?.data?.msgId);
                 
                 // Cache tin nhắn bot (mặc định bot=true, có thể override từ payload)
                 const isBot = bot !== undefined ? bot : true;
                 
-                // Try multiple locations for msgId
-                const msgId = result?.data?.msgId || result?.msgId || result?.data?.message?.msgId;
+                // msgId nằm ở result.message.msgId
+                const msgId = result?.message?.msgId || result?.msgId || result?.data?.msgId;
                 console.log(`[ActionController] Final msgId found:`, msgId);
                 console.log(`[ActionController] isBot: ${isBot}, will cache: ${isBot && !!msgId}`);
                 
