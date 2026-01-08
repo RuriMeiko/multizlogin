@@ -29,15 +29,25 @@ export async function handleAccountAction(req, res) {
                 
                 result = await api.sendMessage(msgContent, threadId, msgType);
                 
-                console.log(`[ActionController] SendMessage result:`, result);
-                console.log(`[ActionController] Result msgId:`, result?.data?.msgId);
+                console.log(`[ActionController] SendMessage FULL result:`, JSON.stringify(result, null, 2));
+                console.log(`[ActionController] Result keys:`, Object.keys(result || {}));
+                console.log(`[ActionController] Result.data:`, result?.data);
+                console.log(`[ActionController] Result.data keys:`, Object.keys(result?.data || {}));
+                console.log(`[ActionController] Checking msgId locations:`);
+                console.log(`  - result.msgId:`, result?.msgId);
+                console.log(`  - result.data.msgId:`, result?.data?.msgId);
+                console.log(`  - result.data.message?.msgId:`, result?.data?.message?.msgId);
                 
                 // Cache tin nhắn bot (mặc định bot=true, có thể override từ payload)
                 const isBot = bot !== undefined ? bot : true;
-                console.log(`[ActionController] isBot: ${isBot}, will cache: ${isBot && result && result.data && result.data.msgId}`);
                 
-                if (isBot && result && result.data && result.data.msgId) {
-                    const cacheResult = await cacheBotMessage(result.data.msgId, {
+                // Try multiple locations for msgId
+                const msgId = result?.data?.msgId || result?.msgId || result?.data?.message?.msgId;
+                console.log(`[ActionController] Final msgId found:`, msgId);
+                console.log(`[ActionController] isBot: ${isBot}, will cache: ${isBot && !!msgId}`);
+                
+                if (isBot && msgId) {
+                    const cacheResult = await cacheBotMessage(msgId, {
                         ownId: account.ownId,
                         threadId,
                         message,
@@ -46,6 +56,8 @@ export async function handleAccountAction(req, res) {
                         sentAt: Date.now()
                     });
                     console.log(`[ActionController] Cache result: ${cacheResult}`);
+                } else {
+                    console.warn(`[ActionController] ⚠️ NOT CACHING - isBot: ${isBot}, msgId: ${msgId}`);
                 }
                 break;
             }
