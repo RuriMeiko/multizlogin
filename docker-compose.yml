@@ -28,8 +28,11 @@ services:
           memory: 128M
 
   zalo-server:
-    # Image từ registry (replace with your registry)
-    image: ${DOCKER_IMAGE:-ghcr.io/chickenai/multizlogin:latest}
+    # Build từ Dockerfile trong repo
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: multizlogin:latest
     
     ports:
       - "${PORT:-3000}:3000"

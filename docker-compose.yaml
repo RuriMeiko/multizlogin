@@ -1,11 +1,15 @@
+# ===========================================
+# Dokploy Docker Compose Configuration
+# ===========================================
+# Cấu hình này được tối ưu cho Dokploy deployment
+# Đảm bảo dữ liệu tài khoản Zalo được bảo toàn qua các lần deploy
+
 version: "3.8"
 services:
   redis:
     image: redis:7-alpine
     container_name: multizlogin-redis
     restart: always
-    ports:
-      - "6379:6379"
     volumes:
       - redis-data:/data
     command: redis-server --appendonly yes
@@ -14,41 +18,77 @@ services:
       interval: 10s
       timeout: 3s
       retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
 
   zalo-server:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: zalo-multi-login:latest
+    # Image từ registry (replace with your registry)
+    image: ${DOCKER_IMAGE:-ghcr.io/chickenai/multizlogin:latest}
+    
     ports:
-      - "3000:3000"
+      - "${PORT:-3000}:3000"
+    
+    # Sử dụng bind mount để đảm bảo data KHÔNG BAO GIỜ bị xóa
+    # Data sẽ được lưu tại /opt/multizlogin-data trên host
     volumes:
-      # Bind mount - data lưu trực tiếp trên host, KHÔNG BAO GIỜ bị xóa khi redeploy
       - /opt/multizlogin-data:/app/data
+    
     environment:
-      - PORT=3000
+      # Server config
+      - PORT=${PORT:-3000}
       - NODE_ENV=production
       - DATA_PATH=/app/data
-      - API_KEY=${API_KEY}
+      
+      # Redis connection
+      - REDIS_URL=redis://redis:6379
+      
+      # Session secret - QUAN TRỌNG: Thay đổi trong Dokploy environment
+      - SESSION_SECRET=${SESSION_SECRET:-change-this-secret-in-dokploy}
+      
+      # Admin password (chỉ dùng khi tạo users.json lần đầu)
+      - ADMIN_DEFAULT_PASSWORD=${ADMIN_DEFAULT_PASSWORD:-admin}
+      
+      # Webhook URLs
       - MESSAGE_WEBHOOK_URL=${MESSAGE_WEBHOOK_URL}
       - GROUP_EVENT_WEBHOOK_URL=${GROUP_EVENT_WEBHOOK_URL}
       - REACTION_WEBHOOK_URL=${REACTION_WEBHOOK_URL}
-      - SESSION_SECRET=${SESSION_SECRET:-zalo-server-secret-key}
       - WEBHOOK_LOGIN_SUCCESS=${WEBHOOK_LOGIN_SUCCESS}
-      - ADMIN_DEFAULT_PASSWORD=${ADMIN_DEFAULT_PASSWORD:-admin}
+      
+      # Proxy config
       - MAX_ACCOUNTS_PER_PROXY=${MAX_ACCOUNTS_PER_PROXY:-3}
-      - REDIS_URL=redis://redis:6379
+    
     restart: always
+    
     depends_on:
       redis:
         condition: service_healthy
+    
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
+    
+    # Resource limits (optional, adjust based on your needs)
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
 
 volumes:
   redis-data:
     driver: local
+
+# Redis data được lưu trong named volume để persist
+# App data được lưu tại /opt/multizlogin-data trên host (bind mount)
