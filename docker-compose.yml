@@ -10,14 +10,17 @@ services:
     image: redis:7-alpine
     container_name: multizlogin-redis
     restart: always
+    networks:
+      - zalo-network
     volumes:
       - redis-data:/data
     command: redis-server --appendonly yes
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
+      interval: 5s
       timeout: 3s
-      retries: 3
+      retries: 5
+      start_period: 5s
     deploy:
       resources:
         limits:
@@ -33,6 +36,9 @@ services:
       context: .
       dockerfile: Dockerfile
     image: multizlogin:latest
+    
+    networks:
+      - zalo-network
     
     # Không expose port ra ngoài, để Dokploy handle reverse proxy
     # Nếu cần expose, Dokploy sẽ tự động map port
@@ -98,6 +104,10 @@ services:
 volumes:
   redis-data:
     driver: local
+
+networks:
+  zalo-network:
+    driver: bridge
 
 # Redis data được lưu trong named volume để persist
 # App data được lưu tại /opt/multizlogin-data trên host (bind mount)

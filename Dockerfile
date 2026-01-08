@@ -1,8 +1,8 @@
 # Sử dụng Node.js 20 (phiên bản ổn định) làm nền tảng
 FROM node:20-slim
 
-# Cài đặt curl cho health check
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+# Cài đặt curl và netcat cho health check và waiting
+RUN apt-get update && apt-get install -y curl netcat-openbsd && rm -rf /var/lib/apt/lists/*
 
 # Thiết lập thư mục làm việc
 WORKDIR /app
