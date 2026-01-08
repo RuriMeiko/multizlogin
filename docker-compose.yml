@@ -34,8 +34,10 @@ services:
       dockerfile: Dockerfile
     image: multizlogin:latest
     
-    ports:
-      - "${PORT:-3000}:3000"
+    # Không expose port ra ngoài, để Dokploy handle reverse proxy
+    # Nếu cần expose, Dokploy sẽ tự động map port
+    expose:
+      - "3000"
     
     # Sử dụng bind mount để đảm bảo data KHÔNG BAO GIỜ bị xóa
     # Data sẽ được lưu tại /opt/multizlogin-data trên host
