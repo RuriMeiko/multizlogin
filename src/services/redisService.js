@@ -76,8 +76,8 @@ export function initRedis() {
 }
 
 // Lưu thông tin tin nhắn bot vào cache
-// TTL mặc định 5 phút (300 giây)
-export async function cacheBotMessage(messageId, data, ttl = 300) {
+// TTL mặc định 10 giây
+export async function cacheBotMessage(messageId, data, ttl = 10) {
     console.log(`[Redis-Cache] Attempting to cache message: ${messageId}`);
     console.log(`[Redis-Cache] isRedisAvailable: ${isRedisAvailable}, redisClient exists: ${!!redisClient}`);
     
@@ -104,8 +104,9 @@ export async function cacheBotMessage(messageId, data, ttl = 300) {
 }
 
 // Kiểm tra xem tin nhắn có phải là bot message không
-export async function checkBotMessage(messageId) {
-    console.log(`[Redis-Check] Checking message: ${messageId}`);
+// Retry logic để xử lý race condition khi webhook đến trước khi cache hoàn tất
+export async function checkBotMessage(messageId, retries = 3, delayMs = 100) {
+    console.log(`[Redis-Check] Checking message: ${messageId} (retries left: ${retries})`);
     console.log(`[Redis-Check] isRedisAvailable: ${isRedisAvailable}, redisClient exists: ${!!redisClient}`);
     
     if (!redisClient || !isRedisAvailable || !messageId) {
@@ -124,7 +125,15 @@ export async function checkBotMessage(messageId) {
             console.log(`[Redis-Check] Cached data:`, parsed);
             return parsed;
         } else {
-            console.log(`[Redis-Check] ❌ Message ${messageId} not found in cache`);
+            console.log(`[Redis-Check] ❌ Message ${messageId} not found in cache (attempt ${4 - retries}/3)`);
+            
+            // Nếu còn retry attempts, đợi một chút rồi thử lại
+            // Xử lý race condition: webhook có thể đến trước khi cache hoàn tất
+            if (retries > 0) {
+                console.log(`[Redis-Check] 🔄 Retrying after ${delayMs}ms... (${retries} retries left)`);
+                await new Promise(resolve => setTimeout(resolve, delayMs));
+                return checkBotMessage(messageId, retries - 1, delayMs);
+            }
         }
         
         return null;
