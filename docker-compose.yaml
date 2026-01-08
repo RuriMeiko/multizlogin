@@ -1,5 +1,20 @@
 version: "3.8"
 services:
+  redis:
+    image: redis:7-alpine
+    container_name: multizlogin-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
   zalo-server:
     build:
       context: .
@@ -22,7 +37,11 @@ services:
       - WEBHOOK_LOGIN_SUCCESS=${WEBHOOK_LOGIN_SUCCESS}
       - ADMIN_DEFAULT_PASSWORD=${ADMIN_DEFAULT_PASSWORD:-admin}
       - MAX_ACCOUNTS_PER_PROXY=${MAX_ACCOUNTS_PER_PROXY:-3}
+      - REDIS_URL=redis://redis:6379
     restart: always
+    depends_on:
+      redis:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
       interval: 30s
@@ -30,4 +49,6 @@ services:
       retries: 3
       start_period: 40s
 
-# Không cần định nghĩa volumes vì dùng bind mount
+volumes:
+  redis-data:
+    driver: local

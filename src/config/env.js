@@ -38,6 +38,9 @@ const env = {
     REACTION_WEBHOOK_URL: process.env.REACTION_WEBHOOK_URL || '',
     WEBHOOK_LOGIN_SUCCESS: process.env.WEBHOOK_LOGIN_SUCCESS || '',
     
+    // Redis
+    REDIS_URL: process.env.REDIS_URL || 'redis://localhost:6379',
+    
     // Data paths
     DATA_PATH: process.env.DATA_PATH || './data',
     

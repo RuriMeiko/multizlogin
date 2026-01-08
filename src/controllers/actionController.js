@@ -1,11 +1,12 @@
 // controllers/actionController.js - Generic action handler
 import { ThreadType } from 'zca-js';
 import { getAccountFromSelection } from './accountController.js';
+import { cacheBotMessage } from '../services/redisService.js';
 
 // API webhook để tương tác với tài khoản
 export async function handleAccountAction(req, res) {
     try {
-        const { accountSelection, action, data } = req.body;
+        const { accountSelection, action, data, bot } = req.body;
 
         if (!action) {
             return res.status(400).json({ error: 'Action is required' });
@@ -24,6 +25,19 @@ export async function handleAccountAction(req, res) {
                 const msgContent = typeof message === 'string' ? { msg: message, quote } : message;
                 
                 result = await api.sendMessage(msgContent, threadId, msgType);
+                
+                // Cache tin nhắn bot (mặc định bot=true, có thể override từ payload)
+                const isBot = bot !== undefined ? bot : true;
+                if (isBot && result && result.data && result.data.msgId) {
+                    await cacheBotMessage(result.data.msgId, {
+                        ownId: account.ownId,
+                        threadId,
+                        message,
+                        type,
+                        bot: true,
+                        sentAt: Date.now()
+                    });
+                }
                 break;
             }
 
@@ -42,6 +56,19 @@ export async function handleAccountAction(req, res) {
 
                 const msgType = type === 'group' ? ThreadType.Group : ThreadType.User;
                 result = await api.sendSticker(sticker, threadId, msgType);
+                
+                // Cache tin nhắn sticker bot
+                const isBot = bot !== undefined ? bot : true;
+                if (isBot && result && result.data && result.data.msgId) {
+                    await cacheBotMessage(result.data.msgId, {
+                        ownId: account.ownId,
+                        threadId,
+                        type: 'sticker',
+                        sticker,
+                        bot: true,
+                        sentAt: Date.now()
+                    });
+                }
                 break;
             }
 

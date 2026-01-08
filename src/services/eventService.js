@@ -9,6 +9,7 @@ import {
 } from '../config/constants.js';
 import { getWebhookUrl, triggerN8nWebhook } from '../utils/helpers.js';
 import { loginZaloAccount, zaloAccounts } from './zaloService.js';
+import { checkBotMessage } from './redisService.js';
 
 // Biến để theo dõi thời gian relogin cho từng tài khoản
 export const reloginAttempts = new Map();
@@ -55,12 +56,22 @@ export function setupEventListeners(api, loginResolve) {
     api._healthCheckTimer = healthCheckTimer;
     
     // Lắng nghe sự kiện tin nhắn
-    api.listener.on("message", (msg) => {
+    api.listener.on("message", async (msg) => {
         console.log(`[Webhook] Nhận được tin nhắn mới cho tài khoản ${ownId}. Đang xử lý webhook...`);
         const messageWebhookUrl = getWebhookUrl("messageWebhookUrl");
         
         if (messageWebhookUrl) {
             console.log(`[Webhook] Tìm thấy URL webhook tin nhắn: ${messageWebhookUrl}`);
+            
+            // Kiểm tra xem tin nhắn có phải là bot message không
+            let isBot = false;
+            if (msg.data && msg.data.msgId) {
+                const cachedBotMsg = await checkBotMessage(msg.data.msgId);
+                if (cachedBotMsg) {
+                    isBot = true;
+                    console.log(`[Webhook] Tin nhắn ${msg.data.msgId} được đánh dấu là bot message`);
+                }
+            }
             
             // Xác định tin nhắn là group hay cá nhân dựa trên threadType hoặc type trong data
             // ThreadType: User = 0, Group = 1
@@ -71,9 +82,10 @@ export function setupEventListeners(api, loginResolve) {
                 _accountId: ownId,
                 _messageType: msg.isSelf ? 'self' : 'user',
                 _isGroup: isGroupMessage,
-                _chatType: isGroupMessage ? 'group' : 'personal'
+                _chatType: isGroupMessage ? 'group' : 'personal',
+                bot: isBot  // Thêm trường bot
             };
-            console.log(`[Webhook] Đang gửi dữ liệu đến webhook... (${isGroupMessage ? 'Group' : 'Personal'})`);
+            console.log(`[Webhook] Đang gửi dữ liệu đến webhook... (${isGroupMessage ? 'Group' : 'Personal'}, bot: ${isBot})`);
             triggerN8nWebhook(msgWithOwnId, messageWebhookUrl)
                 .then(success => {
                     if (success) {

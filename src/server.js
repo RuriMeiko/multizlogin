@@ -4,6 +4,7 @@ import { WebSocketServer } from 'ws';
 import app from './app.js';
 import env from './config/env.js';
 import { setBroadcastFunction } from './services/eventService.js';
+import { initRedis, closeRedis } from './services/redisService.js';
 
 const PORT = env.PORT;
 
@@ -54,6 +55,29 @@ export function broadcastMessage(message) {
 
 // Set broadcast function for event service
 setBroadcastFunction(broadcastMessage);
+
+// Initialize Redis connection
+console.log('[Server] Initializing Redis connection...');
+initRedis();
+
+// Graceful shutdown
+process.on('SIGTERM', async () => {
+    console.log('[Server] SIGTERM received, shutting down gracefully...');
+    await closeRedis();
+    server.close(() => {
+        console.log('[Server] Server closed');
+        process.exit(0);
+    });
+});
+
+process.on('SIGINT', async () => {
+    console.log('[Server] SIGINT received, shutting down gracefully...');
+    await closeRedis();
+    server.close(() => {
+        console.log('[Server] Server closed');
+        process.exit(0);
+    });
+});
 
 // Start server
 server.listen(PORT, () => {

@@ -3,11 +3,12 @@ import { ThreadType } from 'zca-js';
 import { zaloAccounts } from '../services/zaloService.js';
 import { saveImage, removeImage } from '../utils/helpers.js';
 import { getAccountFromSelection } from './accountController.js';
+import { cacheBotMessage } from '../services/redisService.js';
 
 // API gửi tin nhắn
 export async function sendMessage(req, res) {
     try {
-        const { message, threadId, type, ownId } = req.body;
+        const { message, threadId, type, ownId, bot } = req.body;
         if (!message || !threadId || !ownId) {
             return res.status(400).json({ error: 'Dữ liệu không hợp lệ' });
         }
@@ -19,6 +20,19 @@ export async function sendMessage(req, res) {
         
         const msgType = type || ThreadType.User;
         const result = await account.api.sendMessage(message, threadId, msgType);
+        
+        // Cache tin nhắn bot (mặc định bot=true, có thể override từ payload)
+        const isBot = bot !== undefined ? bot : true;
+        if (isBot && result && result.data && result.data.msgId) {
+            await cacheBotMessage(result.data.msgId, {
+                ownId,
+                threadId,
+                message,
+                bot: true,
+                sentAt: Date.now()
+            });
+        }
+        
         res.json({ success: true, data: result });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
@@ -29,7 +43,7 @@ export async function sendMessage(req, res) {
 export async function sendImageToUser(req, res) {
     let imagePath = null;
     try {
-        const { imagePath: imageUrl, threadId, ownId } = req.body;
+        const { imagePath: imageUrl, threadId, ownId, bot } = req.body;
         if (!imageUrl || !threadId || !ownId) {
             return res.status(400).json({ error: 'Dữ liệu không hợp lệ: imagePath và threadId là bắt buộc' });
         }
@@ -49,6 +63,18 @@ export async function sendImageToUser(req, res) {
             threadId,
             ThreadType.User
         );
+
+        // Cache tin nhắn bot
+        const isBot = bot !== undefined ? bot : true;
+        if (isBot && result && result.data && result.data.msgId) {
+            await cacheBotMessage(result.data.msgId, {
+                ownId,
+                threadId,
+                type: 'image',
+                bot: true,
+                sentAt: Date.now()
+            });
+        }
 
         res.json({ success: true, data: result });
     } catch (error) {
@@ -62,7 +88,7 @@ export async function sendImageToUser(req, res) {
 export async function sendImagesToUser(req, res) {
     const imagePaths = [];
     try {
-        const { imagePaths: imageUrls, threadId, ownId } = req.body;
+        const { imagePaths: imageUrls, threadId, ownId, bot } = req.body;
         if (!imageUrls || !threadId || !ownId || !Array.isArray(imageUrls) || imageUrls.length === 0) {
             return res.status(400).json({ error: 'Dữ liệu không hợp lệ: imagePaths phải là mảng không rỗng và threadId là bắt buộc' });
         }
@@ -87,6 +113,18 @@ export async function sendImagesToUser(req, res) {
             ThreadType.User
         );
 
+        // Cache tin nhắn bot
+        const isBot = bot !== undefined ? bot : true;
+        if (isBot && result && result.data && result.data.msgId) {
+            await cacheBotMessage(result.data.msgId, {
+                ownId,
+                threadId,
+                type: 'images',
+                bot: true,
+                sentAt: Date.now()
+            });
+        }
+
         res.json({ success: true, data: result });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
@@ -99,7 +137,7 @@ export async function sendImagesToUser(req, res) {
 export async function sendImageToGroup(req, res) {
     let imagePath = null;
     try {
-        const { imagePath: imageUrl, threadId, ownId } = req.body;
+        const { imagePath: imageUrl, threadId, ownId, bot } = req.body;
         if (!imageUrl || !threadId || !ownId) {
             return res.status(400).json({ error: 'Dữ liệu không hợp lệ: imagePath và threadId là bắt buộc' });
         }
@@ -120,6 +158,18 @@ export async function sendImageToGroup(req, res) {
             ThreadType.Group
         );
 
+        // Cache tin nhắn bot
+        const isBot = bot !== undefined ? bot : true;
+        if (isBot && result && result.data && result.data.msgId) {
+            await cacheBotMessage(result.data.msgId, {
+                ownId,
+                threadId,
+                type: 'image',
+                bot: true,
+                sentAt: Date.now()
+            });
+        }
+
         res.json({ success: true, data: result });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
@@ -132,7 +182,7 @@ export async function sendImageToGroup(req, res) {
 export async function sendImagesToGroup(req, res) {
     const imagePaths = [];
     try {
-        const { imagePaths: imageUrls, threadId, ownId } = req.body;
+        const { imagePaths: imageUrls, threadId, ownId, bot } = req.body;
         if (!imageUrls || !threadId || !ownId || !Array.isArray(imageUrls) || imageUrls.length === 0) {
             return res.status(400).json({ error: 'Dữ liệu không hợp lệ: imagePaths phải là mảng không rỗng và threadId là bắt buộc' });
         }
@@ -157,6 +207,18 @@ export async function sendImagesToGroup(req, res) {
             ThreadType.Group
         );
 
+        // Cache tin nhắn bot
+        const isBot = bot !== undefined ? bot : true;
+        if (isBot && result && result.data && result.data.msgId) {
+            await cacheBotMessage(result.data.msgId, {
+                ownId,
+                threadId,
+                type: 'images',
+                bot: true,
+                sentAt: Date.now()
+            });
+        }
+
         res.json({ success: true, data: result });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
@@ -169,7 +231,7 @@ export async function sendImagesToGroup(req, res) {
 export async function sendImageToUserByAccount(req, res) {
     let imagePath = null;
     try {
-        const { imagePath: imageUrl, threadId, accountSelection } = req.body;
+        const { imagePath: imageUrl, threadId, accountSelection, bot } = req.body;
 
         if (!imageUrl || !threadId) {
             return res.status(400).json({ error: 'Đường dẫn hình ảnh và threadId là bắt buộc' });
@@ -187,6 +249,18 @@ export async function sendImageToUserByAccount(req, res) {
             threadId,
             ThreadType.User
         );
+
+        // Cache tin nhắn bot
+        const isBot = bot !== undefined ? bot : true;
+        if (isBot && result && result.data && result.data.msgId) {
+            await cacheBotMessage(result.data.msgId, {
+                ownId: account.ownId,
+                threadId,
+                type: 'image',
+                bot: true,
+                sentAt: Date.now()
+            });
+        }
 
         res.json({
             success: true,
@@ -207,7 +281,7 @@ export async function sendImageToUserByAccount(req, res) {
 export async function sendImagesToUserByAccount(req, res) {
     const imagePaths = [];
     try {
-        const { imagePaths: imageUrls, threadId, accountSelection } = req.body;
+        const { imagePaths: imageUrls, threadId, accountSelection, bot } = req.body;
 
         if (!imageUrls || !threadId || !Array.isArray(imageUrls) || imageUrls.length === 0) {
             return res.status(400).json({ error: 'Danh sách hình ảnh và threadId là bắt buộc' });
@@ -230,6 +304,18 @@ export async function sendImagesToUserByAccount(req, res) {
             ThreadType.User
         );
 
+        // Cache tin nhắn bot
+        const isBot = bot !== undefined ? bot : true;
+        if (isBot && result && result.data && result.data.msgId) {
+            await cacheBotMessage(result.data.msgId, {
+                ownId: account.ownId,
+                threadId,
+                type: 'images',
+                bot: true,
+                sentAt: Date.now()
+            });
+        }
+
         res.json({
             success: true,
             data: result,
@@ -249,7 +335,7 @@ export async function sendImagesToUserByAccount(req, res) {
 export async function sendImageToGroupByAccount(req, res) {
     let imagePath = null;
     try {
-        const { imagePath: imageUrl, threadId, accountSelection } = req.body;
+        const { imagePath: imageUrl, threadId, accountSelection, bot } = req.body;
 
         if (!imageUrl || !threadId) {
             return res.status(400).json({ error: 'Đường dẫn hình ảnh và threadId là bắt buộc' });
@@ -267,6 +353,18 @@ export async function sendImageToGroupByAccount(req, res) {
             threadId,
             ThreadType.Group
         );
+
+        // Cache tin nhắn bot
+        const isBot = bot !== undefined ? bot : true;
+        if (isBot && result && result.data && result.data.msgId) {
+            await cacheBotMessage(result.data.msgId, {
+                ownId: account.ownId,
+                threadId,
+                type: 'image',
+                bot: true,
+                sentAt: Date.now()
+            });
+        }
 
         res.json({
             success: true,
@@ -287,7 +385,7 @@ export async function sendImageToGroupByAccount(req, res) {
 export async function sendImagesToGroupByAccount(req, res) {
     const imagePaths = [];
     try {
-        const { imagePaths: imageUrls, threadId, accountSelection } = req.body;
+        const { imagePaths: imageUrls, threadId, accountSelection, bot } = req.body;
 
         if (!imageUrls || !threadId || !Array.isArray(imageUrls) || imageUrls.length === 0) {
             return res.status(400).json({ error: 'Danh sách hình ảnh và threadId là bắt buộc' });
@@ -309,6 +407,18 @@ export async function sendImagesToGroupByAccount(req, res) {
             threadId,
             ThreadType.Group
         );
+
+        // Cache tin nhắn bot
+        const isBot = bot !== undefined ? bot : true;
+        if (isBot && result && result.data && result.data.msgId) {
+            await cacheBotMessage(result.data.msgId, {
+                ownId: account.ownId,
+                threadId,
+                type: 'images',
+                bot: true,
+                sentAt: Date.now()
+            });
+        }
 
         res.json({
             success: true,
