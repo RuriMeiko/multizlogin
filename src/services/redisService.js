@@ -105,7 +105,7 @@ export async function cacheBotMessage(messageId, data, ttl = 10) {
 
 // Kiểm tra xem tin nhắn có phải là bot message không
 // Retry logic để xử lý race condition khi webhook đến trước khi cache hoàn tất
-export async function checkBotMessage(messageId, retries = 3, delayMs = 100) {
+export async function checkBotMessage(messageId, retries = 5, delayMs = 500) {
     console.log(`[Redis-Check] Checking message: ${messageId} (retries left: ${retries})`);
     console.log(`[Redis-Check] isRedisAvailable: ${isRedisAvailable}, redisClient exists: ${!!redisClient}`);
     
