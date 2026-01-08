@@ -17,19 +17,21 @@ export function initRedis() {
         
         redisClient = new Redis(redisUrl, {
             retryStrategy(times) {
-                // Sau 5 lần thử, dừng retry và đánh dấu Redis unavailable
-                if (times > 5) {
+                // Tăng số lần retry lên 10 và thời gian chờ lâu hơn cho startup
+                if (times > 10) {
                     console.warn('[Redis] Max retry attempts reached. Bot caching will be disabled.');
                     isRedisAvailable = false;
                     return null; // Dừng retry
                 }
-                const delay = Math.min(times * 1000, 5000);
+                // Tăng delay để chờ Redis container ready
+                const delay = Math.min(times * 2000, 10000); // Tối đa 10 giây
                 console.log(`[Redis] Retry attempt ${times}, waiting ${delay}ms...`);
                 return delay;
             },
-            maxRetriesPerRequest: 1, // Giảm xuống 1 để fail fast
+            maxRetriesPerRequest: 3,
             lazyConnect: true,
             enableOfflineQueue: false, // Không queue commands khi offline
+            connectTimeout: 10000, // 10 giây timeout
         });
 
         redisClient.on('error', (err) => {

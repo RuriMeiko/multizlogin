@@ -59,6 +59,9 @@ services:
       # Admin password (chỉ dùng khi tạo users.json lần đầu)
       - ADMIN_DEFAULT_PASSWORD=${ADMIN_DEFAULT_PASSWORD:-admin}
       
+      # API Key
+      - API_KEY=${API_KEY}
+      
       # Webhook URLs
       - MESSAGE_WEBHOOK_URL=${MESSAGE_WEBHOOK_URL}
       - GROUP_EVENT_WEBHOOK_URL=${GROUP_EVENT_WEBHOOK_URL}
@@ -73,13 +76,14 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+        restart: true
     
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 40s
+      start_period: 60s
     
     # Resource limits (optional, adjust based on your needs)
     deploy:
