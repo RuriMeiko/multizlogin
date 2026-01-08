@@ -16,6 +16,9 @@ export async function handleAccountAction(req, res) {
         const api = account.api;
         let result;
 
+        // Debug log
+        console.log(`[ActionController] Action: ${action}, bot param: ${bot}, default: ${bot !== undefined ? bot : true}`);
+
         switch (action) {
             case 'sendMessage': {
                 const { message, threadId, type, quote } = data;
@@ -26,10 +29,15 @@ export async function handleAccountAction(req, res) {
                 
                 result = await api.sendMessage(msgContent, threadId, msgType);
                 
+                console.log(`[ActionController] SendMessage result:`, result);
+                console.log(`[ActionController] Result msgId:`, result?.data?.msgId);
+                
                 // Cache tin nhắn bot (mặc định bot=true, có thể override từ payload)
                 const isBot = bot !== undefined ? bot : true;
+                console.log(`[ActionController] isBot: ${isBot}, will cache: ${isBot && result && result.data && result.data.msgId}`);
+                
                 if (isBot && result && result.data && result.data.msgId) {
-                    await cacheBotMessage(result.data.msgId, {
+                    const cacheResult = await cacheBotMessage(result.data.msgId, {
                         ownId: account.ownId,
                         threadId,
                         message,
@@ -37,6 +45,7 @@ export async function handleAccountAction(req, res) {
                         bot: true,
                         sentAt: Date.now()
                     });
+                    console.log(`[ActionController] Cache result: ${cacheResult}`);
                 }
                 break;
             }

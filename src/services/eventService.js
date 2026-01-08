@@ -58,6 +58,7 @@ export function setupEventListeners(api, loginResolve) {
     // Lắng nghe sự kiện tin nhắn
     api.listener.on("message", async (msg) => {
         console.log(`[Webhook] Nhận được tin nhắn mới cho tài khoản ${ownId}. Đang xử lý webhook...`);
+        console.log(`[Webhook] Message data:`, JSON.stringify(msg.data, null, 2));
         const messageWebhookUrl = getWebhookUrl("messageWebhookUrl");
         
         if (messageWebhookUrl) {
@@ -66,11 +67,17 @@ export function setupEventListeners(api, loginResolve) {
             // Kiểm tra xem tin nhắn có phải là bot message không
             let isBot = false;
             if (msg.data && msg.data.msgId) {
+                console.log(`[Webhook] Checking cache for msgId: ${msg.data.msgId}`);
                 const cachedBotMsg = await checkBotMessage(msg.data.msgId);
+                console.log(`[Webhook] Cache check result:`, cachedBotMsg);
                 if (cachedBotMsg) {
                     isBot = true;
-                    console.log(`[Webhook] Tin nhắn ${msg.data.msgId} được đánh dấu là bot message`);
+                    console.log(`[Webhook] ✅ Tin nhắn ${msg.data.msgId} được đánh dấu là bot message`);
+                } else {
+                    console.log(`[Webhook] ❌ Tin nhắn ${msg.data.msgId} KHÔNG tìm thấy trong cache (not a bot message)`);
                 }
+            } else {
+                console.log(`[Webhook] ⚠️ Message không có msgId:`, msg.data);
             }
             
             // Xác định tin nhắn là group hay cá nhân dựa trên threadType hoặc type trong data
@@ -86,6 +93,7 @@ export function setupEventListeners(api, loginResolve) {
                 bot: isBot  // Thêm trường bot
             };
             console.log(`[Webhook] Đang gửi dữ liệu đến webhook... (${isGroupMessage ? 'Group' : 'Personal'}, bot: ${isBot})`);
+            console.log(`[Webhook] Payload bot field:`, msgWithOwnId.bot);
             triggerN8nWebhook(msgWithOwnId, messageWebhookUrl)
                 .then(success => {
                     if (success) {

@@ -78,8 +78,11 @@ export function initRedis() {
 // Lưu thông tin tin nhắn bot vào cache
 // TTL mặc định 5 phút (300 giây)
 export async function cacheBotMessage(messageId, data, ttl = 300) {
+    console.log(`[Redis-Cache] Attempting to cache message: ${messageId}`);
+    console.log(`[Redis-Cache] isRedisAvailable: ${isRedisAvailable}, redisClient exists: ${!!redisClient}`);
+    
     if (!redisClient || !isRedisAvailable || !messageId) {
-        // Không log warning nữa để tránh spam log
+        console.warn(`[Redis-Cache] ⚠️ Cannot cache - redisClient: ${!!redisClient}, available: ${isRedisAvailable}, messageId: ${!!messageId}`);
         return false;
     }
 
@@ -91,32 +94,42 @@ export async function cacheBotMessage(messageId, data, ttl = 300) {
         });
         
         await redisClient.setex(key, ttl, value);
-        console.log(`[Redis] Cached bot message: ${messageId} (TTL: ${ttl}s)`);
+        console.log(`[Redis-Cache] ✅ Successfully cached bot message: ${messageId} (TTL: ${ttl}s)`);
+        console.log(`[Redis-Cache] Cached data:`, data);
         return true;
     } catch (error) {
-        // Silent fail - không spam log
+        console.error(`[Redis-Cache] ❌ Error caching message ${messageId}:`, error.message);
         return false;
     }
 }
 
 // Kiểm tra xem tin nhắn có phải là bot message không
 export async function checkBotMessage(messageId) {
+    console.log(`[Redis-Check] Checking message: ${messageId}`);
+    console.log(`[Redis-Check] isRedisAvailable: ${isRedisAvailable}, redisClient exists: ${!!redisClient}`);
+    
     if (!redisClient || !isRedisAvailable || !messageId) {
+        console.warn(`[Redis-Check] ⚠️ Cannot check - redisClient: ${!!redisClient}, available: ${isRedisAvailable}, messageId: ${!!messageId}`);
         return null;
     }
 
     try {
         const key = `bot_message:${messageId}`;
+        console.log(`[Redis-Check] Looking for key: ${key}`);
         const value = await redisClient.get(key);
         
         if (value) {
-            console.log(`[Redis] Found bot message in cache: ${messageId}`);
-            return JSON.parse(value);
+            const parsed = JSON.parse(value);
+            console.log(`[Redis-Check] ✅ Found bot message in cache: ${messageId}`);
+            console.log(`[Redis-Check] Cached data:`, parsed);
+            return parsed;
+        } else {
+            console.log(`[Redis-Check] ❌ Message ${messageId} not found in cache`);
         }
         
         return null;
     } catch (error) {
-        // Silent fail
+        console.error(`[Redis-Check] ❌ Error checking message ${messageId}:`, error.message);
         return null;
     }
 }
