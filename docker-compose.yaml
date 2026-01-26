@@ -8,13 +8,13 @@ version: "3.8"
 services:
   redis:
     image: redis:7-alpine
-    container_name: multizlogin-redis
+
     restart: always
     volumes:
       - redis-data:/data
     command: redis-server --appendonly yes
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
       timeout: 3s
       retries: 3
@@ -30,52 +30,52 @@ services:
   zalo-server:
     # Image từ registry (replace with your registry)
     image: ${DOCKER_IMAGE:-ghcr.io/chickenai/multizlogin:latest}
-    
+
     ports:
       - "${PORT:-3000}:3000"
-    
+
     # Sử dụng bind mount để đảm bảo data KHÔNG BAO GIỜ bị xóa
     # Data sẽ được lưu tại /opt/multizlogin-data trên host
     volumes:
       - /opt/multizlogin-data:/app/data
-    
+
     environment:
       # Server config
       - PORT=${PORT:-3000}
       - NODE_ENV=production
       - DATA_PATH=/app/data
-      
+
       # Redis connection
       - REDIS_URL=redis://redis:6379
-      
+
       # Session secret - QUAN TRỌNG: Thay đổi trong Dokploy environment
       - SESSION_SECRET=${SESSION_SECRET:-change-this-secret-in-dokploy}
-      
+
       # Admin password (chỉ dùng khi tạo users.json lần đầu)
       - ADMIN_DEFAULT_PASSWORD=${ADMIN_DEFAULT_PASSWORD:-admin}
-      
+
       # Webhook URLs
       - MESSAGE_WEBHOOK_URL=${MESSAGE_WEBHOOK_URL}
       - GROUP_EVENT_WEBHOOK_URL=${GROUP_EVENT_WEBHOOK_URL}
       - REACTION_WEBHOOK_URL=${REACTION_WEBHOOK_URL}
       - WEBHOOK_LOGIN_SUCCESS=${WEBHOOK_LOGIN_SUCCESS}
-      
+
       # Proxy config
       - MAX_ACCOUNTS_PER_PROXY=${MAX_ACCOUNTS_PER_PROXY:-3}
-    
+
     restart: always
-    
+
     depends_on:
       redis:
         condition: service_healthy
-    
+
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      test: [ "CMD", "curl", "-f", "http://localhost:3000/health" ]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
-    
+
     # Resource limits (optional, adjust based on your needs)
     deploy:
       resources:
