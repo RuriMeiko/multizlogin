@@ -22,31 +22,32 @@ const env = {
     // Server
     PORT: parseInt(process.env.PORT, 10) || 3000,
     NODE_ENV: process.env.NODE_ENV || 'development',
-    
+
     // API Key (required - must be set in .env)
-    API_KEY:  process.env.API_KEY || crypto.randomBytes(32).toString('hex'),
-    
+    API_KEY: process.env.API_KEY || crypto.randomBytes(32).toString('hex'),
+
     // Session
     SESSION_SECRET: process.env.SESSION_SECRET || 'zalo-server-secret-key',
-    
+
     // Admin
     ADMIN_DEFAULT_PASSWORD: process.env.ADMIN_DEFAULT_PASSWORD || 'admin',
-    
+
     // Webhooks
     MESSAGE_WEBHOOK_URL: process.env.MESSAGE_WEBHOOK_URL || '',
     GROUP_EVENT_WEBHOOK_URL: process.env.GROUP_EVENT_WEBHOOK_URL || '',
     REACTION_WEBHOOK_URL: process.env.REACTION_WEBHOOK_URL || '',
     WEBHOOK_LOGIN_SUCCESS: process.env.WEBHOOK_LOGIN_SUCCESS || '',
-    
+    ERROR_WEBHOOK_URL: process.env.ERROR_WEBHOOK_URL || '',
+
     // Redis
     REDIS_URL: process.env.REDIS_URL || 'redis://localhost:6379',
-    
+
     // Data paths
     DATA_PATH: process.env.DATA_PATH || './data',
-    
+
     // Proxy
     MAX_ACCOUNTS_PER_PROXY: parseInt(process.env.MAX_ACCOUNTS_PER_PROXY, 10) || 3,
-    
+
     // Computed paths
     get COOKIES_DIR() {
         return path.join(this.DATA_PATH, 'cookies');

@@ -2,6 +2,8 @@
 import fs from 'fs';
 import path from 'path';
 import env from '../config/env.js';
+import { HttpsProxyAgent } from 'https-proxy-agent';
+import nodefetch from 'node-fetch';
 
 class ProxyService {
     constructor() {
@@ -13,7 +15,7 @@ class ProxyService {
     init() {
         const proxiesFilePath = env.PROXIES_FILE;
         const dataDir = path.dirname(proxiesFilePath);
-        
+
         // Đảm bảo thư mục data tồn tại
         if (!fs.existsSync(dataDir)) {
             try {
@@ -45,7 +47,7 @@ class ProxyService {
         if (this.PROXIES.length === 0 && this.RAW_PROXIES.length === 0) {
             this.init();
         }
-        
+
         for (let i = 0; i < this.PROXIES.length; i++) {
             if (this.PROXIES[i].usedCount < this.MAX_ACCOUNTS_PER_PROXY) {
                 return i;
@@ -85,6 +87,25 @@ class ProxyService {
         }
         return this.PROXIES;
     }
+
+    async checkProxyAlive(proxyUrl) {
+        try {
+            const agent = new HttpsProxyAgent(proxyUrl);
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 5000); // 5s timeout
+
+            const response = await nodefetch('https://zalo.me', {
+                agent,
+                signal: controller.signal
+            });
+
+            clearTimeout(timeout);
+            return response.ok;
+        } catch (error) {
+            console.error(`[ProxyCheck] Proxy ${proxyUrl} failed:`, error.message);
+            return false;
+        }
+    }
 }
 
 const proxyService = new ProxyService();
@@ -97,3 +118,4 @@ export const getPROXIES = () => proxyService.getPROXIES();
 export const getAvailableProxyIndex = () => proxyService.getAvailableProxyIndex();
 export const addProxy = (proxyUrl) => proxyService.addProxy(proxyUrl);
 export const removeProxy = (proxyUrl) => proxyService.removeProxy(proxyUrl);
+export const checkProxyAlive = (proxyUrl) => proxyService.checkProxyAlive(proxyUrl);
