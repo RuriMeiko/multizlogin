@@ -2,7 +2,7 @@
 # Dokploy Docker Compose Configuration
 # ===========================================
 # Cấu hình này được tối ưu cho Dokploy deployment
-# Đảm bảo dữ liệu tài khoản Zalo được bảo toàn qua các lần deploy
+# Đảm bảo dữ liệu tài khoản Zalo được bảo toàn qua các lần deploy và cô lập giữa các dự án
 
 version: "3.8"
 services:
@@ -34,10 +34,10 @@ services:
     ports:
       - "${PORT:-3000}:3000"
 
-    # Sử dụng bind mount để đảm bảo data KHÔNG BAO GIỜ bị xóa
-    # Data sẽ được lưu tại /opt/multizlogin-data trên host
+    # Sử dụng named volume để data được quản lý bởi Docker và cô lập theo project
+    # Data sẽ được lưu trong volume 'app-data' (thường là /var/lib/docker/volumes/<project_name>_app-data/_data)
     volumes:
-      - /opt/multizlogin-data:/app/data
+      - app-data:/app/data
 
     environment:
       # Server config
@@ -89,6 +89,12 @@ services:
 volumes:
   redis-data:
     driver: local
+  app-data:
+    driver: local
+
+networks:
+  zalo-network:
+    driver: bridge
 
 # Redis data được lưu trong named volume để persist
-# App data được lưu tại /opt/multizlogin-data trên host (bind mount)
+# App data được lưu trong named volume 'app-data' để persist và cô lập
