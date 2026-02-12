@@ -43,7 +43,7 @@ services:
     # Không expose port ra ngoài, để Dokploy handle reverse proxy
     # Nếu cần expose, Dokploy sẽ tự động map port
     expose:
-      - "3000"
+      - ${PORT:-3000}
 
     # Sử dụng named volume để data được quản lý bởi Docker và cô lập theo project
     # Data sẽ được lưu trong volume 'app-data' (thường là /var/lib/docker/volumes/<project_name>_app-data/_data)
