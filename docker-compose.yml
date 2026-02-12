@@ -78,7 +78,8 @@ services:
       - MAX_ACCOUNTS_PER_PROXY=${MAX_ACCOUNTS_PER_PROXY:-3}
 
     restart: always
-
+    ports:
+      - "${HOST_PORT:-5050}:${PORT:-3000}"  # Map ra host:container, ví dụ 5050:3000
     depends_on:
       redis:
         condition: service_healthy
