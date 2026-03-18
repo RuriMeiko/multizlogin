@@ -21,6 +21,6 @@
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
     "ws": "^8.18.1",
-    "zca-js": "^2.0.4"
+    "zca-js": "^2.1.2"
   }
 }
